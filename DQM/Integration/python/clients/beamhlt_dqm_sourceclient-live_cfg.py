@@ -6,7 +6,7 @@ import FWCore.ParameterSet.Config as cms
 BSOnlineRecordName = 'BeamSpotOnlineHLTObjectsRcd'
 BSOnlineTag = 'BeamSpotOnlineHLT'
 BSOnlineJobName = 'BeamSpotOnlineHLT'
-BSOnlineOmsServiceUrl = 'http://cmsoms-services.cms:9949/urn:xdaq-application:lid=100/getRunAndLumiSection'
+BSOnlineOmsServiceUrl = 'http://cmsoms-eventing.cms:9949/urn:xdaq-application:lid=100/getRunAndLumiSection'
 useLockRecords = True
 
 import sys
@@ -46,14 +46,22 @@ if 'unitTest=True' in sys.argv:
 if unitTest:
   process.load("DQM.Integration.config.unitteststreamerinputsource_cfi")
   from DQM.Integration.config.unitteststreamerinputsource_cfi import options
-  # new stream label
-  process.source.streamLabel = cms.untracked.string('streamDQMOnlineBeamspot')
+  # stream label
+  if process.runType.getRunType() == process.runType.hi_run:
+    process.source.streamLabel = 'streamHIDQMOnlineBeamspot'
+  else:
+    process.source.streamLabel = 'streamDQMOnlineBeamspot'
+
 elif live:
   # for live online DQM in P5
   process.load("DQM.Integration.config.inputsource_cfi")
   from DQM.Integration.config.inputsource_cfi import options
-  # new stream label
-  process.source.streamLabel = cms.untracked.string('streamDQMOnlineBeamspot')
+  # stream label
+  if process.runType.getRunType() == process.runType.hi_run:
+    process.source.streamLabel = 'streamHIDQMOnlineBeamspot'
+  else:
+    process.source.streamLabel = 'streamDQMOnlineBeamspot'
+
 else:
   process.load("DQM.Integration.config.fileinputsource_cfi")
   from DQM.Integration.config.fileinputsource_cfi import options
@@ -145,6 +153,11 @@ process.tcdsDigis.InputLabel                         = rawDataInputTag
 # Swap offline <-> online BeamSpot as in Express and HLT
 import RecoVertex.BeamSpotProducer.onlineBeamSpotESProducer_cfi as _mod
 process.BeamSpotESProducer = _mod.onlineBeamSpotESProducer.clone()
+
+# for running offline enhance the time validity of the online beamspot in DB
+if ((not live) or process.isDqmPlayback.value): 
+  process.BeamSpotESProducer.timeThreshold = cms.int32(int(1e6))
+
 import RecoVertex.BeamSpotProducer.BeamSpotOnline_cfi
 process.offlineBeamSpot = RecoVertex.BeamSpotProducer.BeamSpotOnline_cfi.onlineBeamSpotProducer.clone()
 

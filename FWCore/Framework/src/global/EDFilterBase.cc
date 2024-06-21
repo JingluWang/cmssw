@@ -87,19 +87,20 @@ namespace edm {
     void EDFilterBase::doTransformAsync(WaitingTaskHolder iTask,
                                         size_t iTransformIndex,
                                         EventPrincipal const& iEvent,
-                                        ActivityRegistry*,
-                                        ModuleCallingContext const* iMCC,
-                                        ServiceWeakToken const& iToken) {
+                                        ActivityRegistry* iAct,
+                                        ModuleCallingContext iMCC,
+                                        ServiceWeakToken const& iToken) noexcept {
       EventForTransformer ev(iEvent, iMCC);
-      transformAsync_(iTask, iTransformIndex, ev, iToken);
+      transformAsync_(iTask, iTransformIndex, ev, iAct, iToken);
     }
 
-    size_t EDFilterBase::transformIndex_(edm::BranchDescription const& iBranch) const { return -1; }
-    ProductResolverIndex EDFilterBase::transformPrefetch_(std::size_t iIndex) const { return 0; }
+    size_t EDFilterBase::transformIndex_(edm::BranchDescription const& iBranch) const noexcept { return -1; }
+    ProductResolverIndex EDFilterBase::transformPrefetch_(std::size_t iIndex) const noexcept { return 0; }
     void EDFilterBase::transformAsync_(WaitingTaskHolder iTask,
                                        std::size_t iIndex,
                                        edm::EventForTransformer& iEvent,
-                                       ServiceWeakToken const& iToken) const {}
+                                       edm::ActivityRegistry* iAct,
+                                       ServiceWeakToken const& iToken) const noexcept {}
 
     void EDFilterBase::doPreallocate(PreallocationConfiguration const& iPrealloc) {
       const auto nStreams = iPrealloc.numberOfStreams();

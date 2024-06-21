@@ -5,6 +5,10 @@ Toy EDProducers of Ints for testing purposes only.
 
 ----------------------------------------------------------------------*/
 
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wc++20-extensions"
+#endif
+
 #include "DataFormats/Common/interface/Handle.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "DataFormats/TestObjects/interface/ToyProducts.h"
@@ -16,6 +20,8 @@ Toy EDProducers of Ints for testing purposes only.
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/ProcessBlock.h"
+#include "FWCore/Framework/interface/GetterOfProducts.h"
+#include "FWCore/Framework/interface/TypeMatch.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -300,14 +306,17 @@ namespace edmtest {
   class ConsumingIntProducer : public edm::stream::EDProducer<> {
   public:
     explicit ConsumingIntProducer(edm::ParameterSet const& p)
-        : token_{produces<IntProduct>()}, value_(p.getParameter<int>("ivalue")) {
+        : getterOfTriggerResults_(edm::TypeMatch(), this),
+          token_{produces<IntProduct>()},
+          value_(p.getParameter<int>("ivalue")) {
       // not used, only exists to test PathAndConsumesOfModules
       consumes<edm::TriggerResults>(edm::InputTag("TriggerResults"));
-      consumesMany<edm::TriggerResults>();
+      callWhenNewProductsRegistered(getterOfTriggerResults_);
     }
     void produce(edm::Event& e, edm::EventSetup const& c) override;
 
   private:
+    edm::GetterOfProducts<edm::TriggerResults> getterOfTriggerResults_;
     const edm::EDPutTokenT<IntProduct> token_;
     const int value_;
   };
@@ -485,7 +494,10 @@ namespace edmtest {
 
   class AddAllIntsProducer : public edm::global::EDProducer<> {
   public:
-    explicit AddAllIntsProducer(edm::ParameterSet const& p) : putToken_{produces()} { consumesMany<IntProduct>(); }
+    explicit AddAllIntsProducer(edm::ParameterSet const& p) : putToken_{produces()} {
+      getter_ = edm::GetterOfProducts<IntProduct>(edm::TypeMatch(), this);
+      callWhenNewProductsRegistered(*getter_);
+    }
     void produce(edm::StreamID, edm::Event& e, edm::EventSetup const& c) const override;
 
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -495,11 +507,12 @@ namespace edmtest {
 
   private:
     const edm::EDPutTokenT<int> putToken_;
+    std::optional<edm::GetterOfProducts<IntProduct>> getter_;
   };
 
   void AddAllIntsProducer::produce(edm::StreamID, edm::Event& e, edm::EventSetup const&) const {
     std::vector<edm::Handle<IntProduct>> ints;
-    e.getManyByType(ints);
+    getter_->fillHandles(e, ints);
 
     int value = 0;
     for (auto const& i : ints) {
@@ -601,7 +614,7 @@ namespace edmtest {
   public:
     explicit ManyIntWhenRegisteredProducer(edm::ParameterSet const& p)
         : sourceLabel_(p.getParameter<std::string>("src")) {
-      callWhenNewProductsRegistered([=](edm::BranchDescription const& iBranch) {
+      callWhenNewProductsRegistered([=, this](edm::BranchDescription const& iBranch) {
         if (iBranch.moduleLabel() == sourceLabel_) {
           if (iBranch.branchType() != edm::InEvent) {
             throw edm::Exception(edm::errors::UnimplementedFeature)
@@ -983,6 +996,29 @@ namespace edm::test {
       edm::EDPutTokenT<edmtest::IntProduct> token_;
       int value_;
     };
+
+    class IntTransformer : public edm::global::EDProducer<edm::Transformer> {
+    public:
+      explicit IntTransformer(edm::ParameterSet const& p)
+          : token_{produces()}, value_(p.getParameter<int>("valueOther")) {
+        registerTransform(token_,
+                          [](edmtest::ATransientIntProduct const& iV) { return edmtest::IntProduct(iV.value); });
+      }
+      void produce(edm::StreamID, edm::Event& e, edm::EventSetup const& c) const final { e.emplace(token_, value_); }
+
+      static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+        edm::ParameterSetDescription desc;
+        desc.add<int>("valueOther");
+        desc.add<int>("valueCpu");
+        desc.addUntracked<std::string>("variant", "");
+
+        descriptions.addWithDefaultLabel(desc);
+      }
+
+    private:
+      edm::EDPutTokenT<edmtest::ATransientIntProduct> token_;
+      int value_;
+    };
   }  // namespace other
   namespace cpu {
     class IntProducer : public edm::global::EDProducer<> {
@@ -1003,6 +1039,12 @@ namespace edm::test {
       edm::EDPutTokenT<edmtest::IntProduct> token_;
       int value_;
     };
+    // The idea is that the other::IntTransformer produces an
+    // additional *transient* data product compared to
+    // cpu::IntTransformer. The cpu::IntTransformer would be
+    // functionally equivalent to cpu::IntProducer, so can simply use
+    // a type alias.
+    using IntTransformer = IntProducer;
   }  // namespace cpu
 }  // namespace edm::test
 
@@ -1053,3 +1095,5 @@ DEFINE_FWK_MODULE(TransientIntProducerEndProcessBlock);
 DEFINE_FWK_MODULE(edmtest::MustRunIntProducer);
 DEFINE_FWK_MODULE(edm::test::other::IntProducer);
 DEFINE_FWK_MODULE(edm::test::cpu::IntProducer);
+DEFINE_FWK_MODULE(edm::test::other::IntTransformer);
+DEFINE_FWK_MODULE(edm::test::cpu::IntTransformer);

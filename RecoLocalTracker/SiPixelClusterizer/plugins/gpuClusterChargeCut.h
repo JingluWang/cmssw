@@ -8,9 +8,7 @@
 #include "Geometry/CommonTopologies/interface/SimplePixelTopology.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/cuda_assert.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/prefixScan.h"
-
-// local include(s)
-#include "SiPixelClusterThresholds.h"
+#include "RecoLocalTracker/SiPixelClusterizer/interface/SiPixelClusterThresholds.h"
 
 namespace gpuClustering {
 
@@ -25,15 +23,16 @@ namespace gpuClustering {
       uint32_t const* __restrict__ moduleId,     // module id of each module
       int32_t* __restrict__ clusterId,           // modified: cluster id of each pixel
       uint32_t numElements) {
+    constexpr int32_t maxNumClustersPerModules = TrackerTraits::maxNumClustersPerModules;
+
     __shared__ int32_t charge[maxNumClustersPerModules];
     __shared__ uint8_t ok[maxNumClustersPerModules];
     __shared__ uint16_t newclusId[maxNumClustersPerModules];
 
     constexpr int startBPIX2 = TrackerTraits::layerStart[1];
-    [[maybe_unused]] constexpr int nMaxModules = TrackerTraits::numberOfModules;
 
-    assert(nMaxModules < maxNumModules);
-    assert(startBPIX2 < nMaxModules);
+    assert(TrackerTraits::numberOfModules < maxNumModules);
+    assert(startBPIX2 < TrackerTraits::numberOfModules);
 
     auto firstModule = blockIdx.x;
     auto endModule = moduleStart[0];
@@ -53,7 +52,7 @@ namespace gpuClustering {
         // reached the end of the module while skipping the invalid pixels, skip this module
         continue;
       }
-      assert(thisModuleId < nMaxModules);
+      assert(thisModuleId < TrackerTraits::numberOfModules);
 
       auto nclus = nClustersInModule[thisModuleId];
       if (nclus == 0)
@@ -119,8 +118,21 @@ namespace gpuClustering {
 
       // renumber
       __shared__ uint16_t ws[32];
-      cms::cuda::blockPrefixScan(newclusId, nclus, ws);
+      constexpr auto maxThreads = 1024;
+      auto minClust = nclus > maxThreads ? maxThreads : nclus;
 
+      cms::cuda::blockPrefixScan(newclusId, newclusId, minClust, ws);
+      if constexpr (maxNumClustersPerModules > maxThreads)  //only if needed
+      {
+        for (uint32_t offset = maxThreads; offset < nclus; offset += maxThreads) {
+          cms::cuda::blockPrefixScan(newclusId + offset, newclusId + offset, nclus - offset, ws);
+          for (uint32_t i = threadIdx.x + offset; i < nclus; i += blockDim.x) {
+            uint32_t prevBlockEnd = ((i / maxThreads) * maxThreads) - 1;
+            newclusId[i] += newclusId[prevBlockEnd];
+          }
+          __syncthreads();
+        }
+      }
       assert(nclus > newclusId[nclus - 1]);
 
       nClustersInModule[thisModuleId] = newclusId[nclus - 1];
@@ -137,7 +149,7 @@ namespace gpuClustering {
           clusterId[i] = newclusId[clusterId[i]] - 1;
       }
 
-      //done
+      // done
       __syncthreads();
     }  // loop on modules
   }

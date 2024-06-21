@@ -6,6 +6,7 @@
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/ServiceRegistry/interface/ActivityRegistry.h"
+#include "FWCore/ServiceRegistry/interface/SystemBounds.h"
 #include "FWCore/ServiceRegistry/interface/ProcessContext.h"
 #include "FWCore/Utilities/interface/Exception.h"
 
@@ -60,8 +61,12 @@ TritonService::TritonService(const edm::ParameterSet& pset, edm::ActivityRegistr
       currentModuleId_(0),
       allowAddModel_(false),
       startedFallback_(false),
+      callFails_(0),
       pid_(std::to_string(::getpid())) {
   //module construction is assumed to be serial (correct at the time this code was written)
+
+  areg.watchPreallocate(this, &TritonService::preallocate);
+
   areg.watchPreModuleConstruction(this, &TritonService::preModuleConstruction);
   areg.watchPostModuleConstruction(this, &TritonService::postModuleConstruction);
   areg.watchPreModuleDestruction(this, &TritonService::preModuleDestruction);
@@ -100,20 +105,22 @@ TritonService::TritonService(const edm::ParameterSet& pset, edm::ActivityRegistr
     std::unique_ptr<tc::InferenceServerGrpcClient> client;
     TRITON_THROW_IF_ERROR(
         tc::InferenceServerGrpcClient::Create(&client, server.url, false, server.useSsl, server.sslOptions),
-        "TritonService(): unable to create inference context for " + serverName + " (" + server.url + ")");
+        "TritonService(): unable to create inference context for " + serverName + " (" + server.url + ")",
+        false);
 
     if (verbose_) {
       inference::ServerMetadataResponse serverMetaResponse;
       TRITON_THROW_IF_ERROR(client->ServerMetadata(&serverMetaResponse),
-                            "TritonService(): unable to get metadata for " + serverName + " (" + server.url + ")");
+                            "TritonService(): unable to get metadata for " + serverName + " (" + server.url + ")",
+                            false);
       edm::LogInfo("TritonService") << "Server " << serverName << ": url = " << server.url
                                     << ", version = " << serverMetaResponse.version();
     }
 
     inference::RepositoryIndexResponse repoIndexResponse;
-    TRITON_THROW_IF_ERROR(
-        client->ModelRepositoryIndex(&repoIndexResponse),
-        "TritonService(): unable to get repository index for " + serverName + " (" + server.url + ")");
+    TRITON_THROW_IF_ERROR(client->ModelRepositoryIndex(&repoIndexResponse),
+                          "TritonService(): unable to get repository index for " + serverName + " (" + server.url + ")",
+                          false);
 
     //servers keep track of models and vice versa
     if (verbose_)
@@ -134,6 +141,10 @@ TritonService::TritonService(const edm::ParameterSet& pset, edm::ActivityRegistr
   }
   if (verbose_)
     edm::LogInfo("TritonService") << msg;
+}
+
+void TritonService::preallocate(edm::service::SystemBounds const& bounds) {
+  numberOfThreads_ = bounds.maxNumberOfThreads();
 }
 
 void TritonService::preModuleConstruction(edm::ModuleDescription const& desc) {
@@ -240,6 +251,8 @@ void TritonService::preBeginJob(edm::PathsAndConsumesOfModulesBase const&, edm::
   for (const auto& [modelName, model] : unservedModels_) {
     fallbackOpts_.command += " -m " + model.path;
   }
+  std::string thread_string = " -I " + std::to_string(numberOfThreads_);
+  fallbackOpts_.command += thread_string;
   if (!fallbackOpts_.imageName.empty())
     fallbackOpts_.command += " -i " + fallbackOpts_.imageName;
   if (!fallbackOpts_.sandboxName.empty())
@@ -287,20 +300,39 @@ void TritonService::preBeginJob(edm::PathsAndConsumesOfModulesBase const&, edm::
                                            << output;
 }
 
+void TritonService::notifyCallStatus(bool status) const {
+  if (status)
+    --callFails_;
+  else
+    ++callFails_;
+}
+
 void TritonService::postEndJob() {
   if (!startedFallback_)
     return;
 
-  std::string command = fallbackOpts_.command + " stop";
+  std::string command = fallbackOpts_.command;
+  //prevent log cleanup during server stop
+  if (callFails_ > 0)
+    command += " -c";
+  command += " stop";
   if (verbose_)
     edm::LogInfo("TritonService") << command;
 
   const auto& [output, rv] = execSys(command);
-  if (rv != 0) {
+  if (rv != 0 or callFails_ > 0) {
+    //print logs if cmsRun is currently exiting because of a TritonException
     edm::LogError("TritonService") << output;
     printFallbackServerLog<edm::LogError>();
-    throw cms::Exception("FallbackFailed")
-        << "TritonService: Stopping the fallback server failed with exit code " << rv;
+    if (rv != 0) {
+      std::string stopCat("FallbackFailed");
+      std::string stopMsg = fmt::format("TritonService: Stopping the fallback server failed with exit code {}", rv);
+      //avoid throwing if the stack is already unwinding
+      if (callFails_ > 0)
+        edm::LogWarning(stopCat) << stopMsg;
+      else
+        throw cms::Exception(stopCat) << stopMsg;
+    }
   } else if (verbose_) {
     edm::LogInfo("TritonService") << output;
     printFallbackServerLog<edm::LogInfo>();

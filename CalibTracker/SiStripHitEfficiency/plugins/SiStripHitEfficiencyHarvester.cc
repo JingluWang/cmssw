@@ -23,16 +23,17 @@
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 
 //system includes
-#include <sstream>
 #include <boost/type_index.hpp>
+#include <fmt/printf.h>
 #include <numeric>  // for std::accumulate
+#include <sstream>
 
 // ROOT includes
-#include "TGraphAsymmErrors.h"
 #include "TCanvas.h"
+#include "TEfficiency.h"
+#include "TGraphAsymmErrors.h"
 #include "TLegend.h"
 #include "TStyle.h"
-#include "TEfficiency.h"
 #include "TTree.h"
 
 // custom made printout
@@ -89,12 +90,13 @@ private:
   void printAndWriteBadModules(const SiStripQuality& quality, const SiStripDetInfo& detInfo) const;
   bool checkMapsValidity(const std::vector<MonitorElement*>& maps, const std::string& type) const;
   unsigned int countTotalHits(const std::vector<MonitorElement*>& maps); /* to check if TK was ON */
-  void makeSummary(DQMStore::IGetter& getter, DQMStore::IBooker& booker) const;
+  void makeSummary(DQMStore::IGetter& getter, DQMStore::IBooker& booker, bool doProfiles = false) const;
+  void makeSummaryVsVariable(DQMStore::IGetter& getter,
+                             DQMStore::IBooker& booker,
+                             ::projections theProj,
+                             bool doProfiles = true) const;
   template <typename T>
   void setEffBinLabels(const T gr, const T gr2, const unsigned int nLayers) const;
-  void makeSummaryVsBX(DQMStore::IGetter& getter, TFileService& fs) const;
-  void makeSummaryVsLumi(DQMStore::IGetter& getter) const;
-  void makeSummaryVsCM(DQMStore::IGetter& getter, TFileService& fs) const;
 };
 
 SiStripHitEfficiencyHarvester::SiStripHitEfficiencyHarvester(const edm::ParameterSet& conf)
@@ -322,69 +324,14 @@ void SiStripHitEfficiencyHarvester::dqmEndJob(DQMStore::IBooker& booker, DQMStor
             t_isTaggedIneff = false;
             t_threshold = 0;
             tree->Fill();
-          }
-        }
-
-        //Put any module into the TKMap
-        tkMap.fill(det, 1. - eff);
-        tkMapEff.fill(det, eff);
-        tkMapNum.fill(det, num);
-        tkMapDen.fill(det, denom);
-
-        layerTotal[layer] += denom;
-        layerFound[layer] += num;
-
-        // for the summary
-        // Have to do the decoding for which side to go on (ugh)
-        if (layer <= bounds::k_LayersAtTOBEnd) {
-          goodlayerfound[layer] += num;
-          goodlayertotal[layer] += denom;
-        } else if (layer > bounds::k_LayersAtTOBEnd && layer <= bounds::k_LayersAtTIDEnd) {
-          if (tTopo_->tidSide(det) == 1) {
-            goodlayerfound[layer] += num;
-            goodlayertotal[layer] += denom;
-          } else if (tTopo_->tidSide(det) == 2) {
-            goodlayerfound[layer + 3] += num;
-            goodlayertotal[layer + 3] += denom;
-          }
-        } else if (layer > bounds::k_LayersAtTIDEnd && layer <= bounds::k_LayersAtTECEnd) {
-          if (tTopo_->tecSide(det) == 1) {
-            goodlayerfound[layer + 3] += num;
-            goodlayertotal[layer + 3] += denom;
-          } else if (tTopo_->tecSide(det) == 2) {
-            goodlayerfound[layer + 3 + nTEClayers_] += num;
-            goodlayertotal[layer + 3 + nTEClayers_] += denom;
-          }
-        }
-      }  // if the module is good!
-
-      //Do the one where we don't exclude bad modules!
-      if (layer <= bounds::k_LayersAtTOBEnd) {
-        alllayerfound[layer] += num;
-        alllayertotal[layer] += denom;
-      } else if (layer > bounds::k_LayersAtTOBEnd && layer <= bounds::k_LayersAtTIDEnd) {
-        if (tTopo_->tidSide(det) == 1) {
-          alllayerfound[layer] += num;
-          alllayertotal[layer] += denom;
-        } else if (tTopo_->tidSide(det) == 2) {
-          alllayerfound[layer + 3] += num;
-          alllayertotal[layer + 3] += denom;
-        }
-      } else if (layer > bounds::k_LayersAtTIDEnd && layer <= bounds::k_LayersAtTECEnd) {
-        if (tTopo_->tecSide(det) == 1) {
-          alllayerfound[layer + 3] += num;
-          alllayertotal[layer + 3] += denom;
-        } else if (tTopo_->tecSide(det) == 2) {
-          alllayerfound[layer + 3 + nTEClayers_] += num;
-          alllayertotal[layer + 3 + nTEClayers_] += denom;
-        }
-      }
-
-    }  // if denom
-  }    // loop on DetIds
+          }  // if storing tree
+        }    // if not autoInefModTagging
+      }      // if there are no bad APVs
+    }        // if denom
+  }          // loop on DetIds
 
   if (autoIneffModTagging_) {
-    for (Long_t i = 1; i <= k_LayersAtTECEnd; i++) {
+    for (unsigned int i = 1; i <= k_LayersAtTECEnd; i++) {
       //Compute threshold to use for each layer
       hEffInLayer[i]->getTH1()->GetXaxis()->SetRange(
           3, hEffInLayer[i]->getNbinsX() + 1);  // Remove from the avg modules below 1%
@@ -395,13 +342,14 @@ void SiStripHitEfficiencyHarvester::dqmEndJob(DQMStore::IBooker& booker, DQMStor
       hEffInLayer[i]->getTH1()->GetXaxis()->SetRange(1, hEffInLayer[i]->getNbinsX() + 1);
 
       for (auto det : stripDetIds_) {
-        // use only the "good" modules
-        if (stripQuality_->getBadApvs(det) == 0 && calibData_.checkFedError(det)) {
-          const auto layer = ::checkLayer(det, tTopo_.get());
-          if (layer == i) {
-            const auto num = h_module_found->getValue(det);
-            const auto denom = h_module_total->getValue(det);
-            if (denom) {
+        const auto layer = ::checkLayer(det, tTopo_.get());
+        if (layer == i) {
+          const auto num = h_module_found->getValue(det);
+          const auto denom = h_module_total->getValue(det);
+          if (denom) {
+            assert(num <= denom);  // can't have this happen
+            // use only the "good" modules
+            if (stripQuality_->getBadApvs(det) == 0 && calibData_.checkFedError(det)) {
               const auto eff = num / denom;
               const auto eff_up = TEfficiency::Bayesian(denom, num, .99, 1, 1, true);
 
@@ -438,12 +386,66 @@ void SiStripHitEfficiencyHarvester::dqmEndJob(DQMStore::IBooker& booker, DQMStor
                 t_threshold = layer_min_eff;
                 tree->Fill();
               }  // if storing tree
-            }    // if denom
-          }      // layer = i
-        }        // if there are no bad APVs
-      }          // loop on detids
-    }            // loop on layers
-  }              // if auto tagging
+
+              //Put modules into the TKMap
+              tkMap.fill(det, 1. - eff);
+              tkMapEff.fill(det, eff);
+              tkMapNum.fill(det, num);
+              tkMapDen.fill(det, denom);
+
+              layerTotal[layer] += denom;
+              layerFound[layer] += num;
+
+              // for the summary
+              // Have to do the decoding for which side to go on (ugh)
+              if (layer <= bounds::k_LayersAtTOBEnd) {
+                goodlayerfound[layer] += num;
+                goodlayertotal[layer] += denom;
+              } else if (layer <= bounds::k_LayersAtTIDEnd) {
+                if (tTopo_->tidSide(det) == 1) {
+                  goodlayerfound[layer] += num;
+                  goodlayertotal[layer] += denom;
+                } else if (tTopo_->tidSide(det) == 2) {
+                  goodlayerfound[layer + 3] += num;
+                  goodlayertotal[layer + 3] += denom;
+                }
+              } else if (layer <= bounds::k_LayersAtTECEnd) {
+                if (tTopo_->tecSide(det) == 1) {
+                  goodlayerfound[layer + 3] += num;
+                  goodlayertotal[layer + 3] += denom;
+                } else if (tTopo_->tecSide(det) == 2) {
+                  goodlayerfound[layer + 3 + nTEClayers_] += num;
+                  goodlayertotal[layer + 3 + nTEClayers_] += denom;
+                }
+              }
+            }  // if the module is good!
+
+            //Do the one where we don't exclude bad modules!
+            if (layer <= bounds::k_LayersAtTOBEnd) {
+              alllayerfound[layer] += num;
+              alllayertotal[layer] += denom;
+            } else if (layer <= bounds::k_LayersAtTIDEnd) {
+              if (tTopo_->tidSide(det) == 1) {
+                alllayerfound[layer] += num;
+                alllayertotal[layer] += denom;
+              } else if (tTopo_->tidSide(det) == 2) {
+                alllayerfound[layer + 3] += num;
+                alllayertotal[layer + 3] += denom;
+              }
+            } else if (layer <= bounds::k_LayersAtTECEnd) {
+              if (tTopo_->tecSide(det) == 1) {
+                alllayerfound[layer + 3] += num;
+                alllayertotal[layer + 3] += denom;
+              } else if (tTopo_->tecSide(det) == 2) {
+                alllayerfound[layer + 3 + nTEClayers_] += num;
+                alllayertotal[layer + 3 + nTEClayers_] += denom;
+              }
+            }
+          }  // if denom
+        }    // layer = i
+      }      // loop on detids
+    }        // loop on layers
+  }          // if auto tagging
 
   tkMap.save(true, 0, 0, "SiStripHitEffTKMap_NEW.png");
   tkMapBad.save(true, 0, 0, "SiStripHitEffTKMapBad_NEW.png");
@@ -466,7 +468,7 @@ void SiStripHitEfficiencyHarvester::dqmEndJob(DQMStore::IBooker& booker, DQMStor
     LOGPRINT << "Number of strips module " << det << " is " << nStrips;
     badStripList.push_back(pQuality.encode(0, nStrips, 0));
     //Now compact into a single bad module
-    LOGPRINT << "ID1 shoudl match list of modules above " << det;
+    LOGPRINT << "ID1 should match list of modules above " << det;
     pQuality.compact(det, badStripList);
     pQuality.put(det, SiStripQuality::Range(badStripList.begin(), badStripList.end()));
   }
@@ -489,14 +491,9 @@ void SiStripHitEfficiencyHarvester::dqmEndJob(DQMStore::IBooker& booker, DQMStor
 
   // make summary plots
   makeSummary(getter, booker);
-  makeSummaryVsLumi(getter);  // TODO
-
-  /*
-    if (!isAtPCL_) {
-    makeSummaryVsBX(getter, *fs);  // TODO
-    makeSummaryVsCM(getter, *fs);  // TODO
-    }
-  */
+  makeSummaryVsVariable(getter, booker, projections::k_vs_LUMI);
+  makeSummaryVsVariable(getter, booker, projections::k_vs_PU);
+  makeSummaryVsVariable(getter, booker, projections::k_vs_BX);
 }
 
 void SiStripHitEfficiencyHarvester::printTotalStatistics(
@@ -506,15 +503,10 @@ void SiStripHitEfficiencyHarvester::printTotalStatistics(
   int totalfound = 0;
   int totaltotal = 0;
   double layereff;
-  int subdetfound[5];
-  int subdettotal[5];
+  int subdetfound[5] = {0, 0, 0, 0, 0};
+  int subdettotal[5] = {0, 0, 0, 0, 0};
 
-  for (Long_t i = 1; i < 5; i++) {
-    subdetfound[i] = 0;
-    subdettotal[i] = 0;
-  }
-
-  for (Long_t i = 1; i <= bounds::k_LayersAtTECEnd; i++) {
+  for (unsigned int i = 1; i <= bounds::k_LayersAtTECEnd; i++) {
     layereff = double(layerFound[i]) / double(layerTotal[i]);
     LOGPRINT << "Layer " << i << " (" << ::layerName(i, showRings_, nTEClayers_) << ") has total efficiency "
              << layereff << " " << layerFound[i] << "/" << layerTotal[i];
@@ -565,9 +557,10 @@ void SiStripHitEfficiencyHarvester::writeBadStripPayload(const SiStripQuality& q
   }
 }
 
-void SiStripHitEfficiencyHarvester::makeSummary(DQMStore::IGetter& getter, DQMStore::IBooker& booker) const {
+void SiStripHitEfficiencyHarvester::makeSummary(DQMStore::IGetter& getter,
+                                                DQMStore::IBooker& booker,
+                                                bool doProfiles) const {
   // use goodlayer_total/found and alllayer_total/found, collapse side and/or ring if needed
-
   unsigned int nLayers{34};  // default
   if (showRings_)
     nLayers = 30;
@@ -580,21 +573,24 @@ void SiStripHitEfficiencyHarvester::makeSummary(DQMStore::IGetter& getter, DQMSt
 
   // come back to the main folder and create a final efficiency folder
   booker.setCurrentFolder(fmt::format("{}/EfficiencySummary", inputFolder_));
-  MonitorElement* found = booker.book1D("found", "found", nLayers + 1, 0, nLayers + 1);
-  MonitorElement* all = booker.book1D("all", "all", nLayers + 1, 0, nLayers + 1);
-  MonitorElement* found2 = booker.book1D("found2", "found", nLayers + 1, 0, nLayers + 1);
-  MonitorElement* all2 = booker.book1D("all2", "all2", nLayers + 1, 0, nLayers + 1);
+  MonitorElement* found_good =
+      booker.book1D("found_good", "found hits per layer (good modules only)", nLayers + 1, 0, nLayers + 1);
+  MonitorElement* all_good =
+      booker.book1D("all_good", "all hits per layer (good modules only)", nLayers + 1, 0, nLayers + 1);
+  MonitorElement* found_all =
+      booker.book1D("found_all", "found hit per layer (all modules)", nLayers + 1, 0, nLayers + 1);
+  MonitorElement* all_all = booker.book1D("all_all", "all hits per layer (all modules)", nLayers + 1, 0, nLayers + 1);
 
   // first bin only to keep real data off the y axis so set to -1
-  found->setBinContent(0, -1);
-  all->setBinContent(0, 1);
+  found_good->setBinContent(0, -1);
+  all_good->setBinContent(0, 1);
 
   // new ROOT version: TGraph::Divide don't handle null or negative values
   for (unsigned int i = 1; i < nLayers + 2; ++i) {
-    found->setBinContent(i, 1e-6);
-    all->setBinContent(i, 1);
-    found2->setBinContent(i, 1e-6);
-    all2->setBinContent(i, 1);
+    found_good->setBinContent(i, 1e-6);
+    all_good->setBinContent(i, 1);
+    found_all->setBinContent(i, 1e-6);
+    all_all->setBinContent(i, 1);
   }
 
   TCanvas* c7 = new TCanvas("c7", " test ", 10, 10, 800, 600);
@@ -608,14 +604,14 @@ void SiStripHitEfficiencyHarvester::makeSummary(DQMStore::IGetter& getter, DQMSt
     LOGPRINT << "Fill only good modules layer " << i << ":  S = " << goodlayerfound[i]
              << "    B = " << goodlayertotal[i];
     if (goodlayertotal[i] > 5) {
-      found->setBinContent(i, goodlayerfound[i]);
-      all->setBinContent(i, goodlayertotal[i]);
+      found_good->setBinContent(i, goodlayerfound[i]);
+      all_good->setBinContent(i, goodlayertotal[i]);
     }
 
     LOGPRINT << "Filling all modules layer " << i << ":  S = " << alllayerfound[i] << "    B = " << alllayertotal[i];
     if (alllayertotal[i] > 5) {
-      found2->setBinContent(i, alllayerfound[i]);
-      all2->setBinContent(i, alllayertotal[i]);
+      found_all->setBinContent(i, alllayerfound[i]);
+      all_all->setBinContent(i, alllayertotal[i]);
     }
   }
 
@@ -625,14 +621,14 @@ void SiStripHitEfficiencyHarvester::makeSummary(DQMStore::IGetter& getter, DQMSt
       LOGPRINT << "Fill only good modules layer " << i << ":  S = " << goodlayerfound[i] + goodlayerfound[i + 3]
                << "    B = " << goodlayertotal[i] + goodlayertotal[i + 3];
       if (goodlayertotal[i] + goodlayertotal[i + 3] > 5) {
-        found->setBinContent(i, goodlayerfound[i] + goodlayerfound[i + 3]);
-        all->setBinContent(i, goodlayertotal[i] + goodlayertotal[i + 3]);
+        found_good->setBinContent(i, goodlayerfound[i] + goodlayerfound[i + 3]);
+        all_good->setBinContent(i, goodlayertotal[i] + goodlayertotal[i + 3]);
       }
       LOGPRINT << "Filling all modules layer " << i << ":  S = " << alllayerfound[i] + alllayerfound[i + 3]
                << "    B = " << alllayertotal[i] + alllayertotal[i + 3];
       if (alllayertotal[i] + alllayertotal[i + 3] > 5) {
-        found2->setBinContent(i, alllayerfound[i] + alllayerfound[i + 3]);
-        all2->setBinContent(i, alllayertotal[i] + alllayertotal[i + 3]);
+        found_all->setBinContent(i, alllayerfound[i] + alllayerfound[i + 3]);
+        all_all->setBinContent(i, alllayertotal[i] + alllayertotal[i + 3]);
       }
     }
     for (unsigned int i = 17; i < 17 + nTEClayers_; ++i) {  // TEC disks
@@ -640,50 +636,75 @@ void SiStripHitEfficiencyHarvester::makeSummary(DQMStore::IGetter& getter, DQMSt
                << ":  S = " << goodlayerfound[i] + goodlayerfound[i + nTEClayers_]
                << "    B = " << goodlayertotal[i] + goodlayertotal[i + nTEClayers_];
       if (goodlayertotal[i] + goodlayertotal[i + nTEClayers_] > 5) {
-        found->setBinContent(i - 3, goodlayerfound[i] + goodlayerfound[i + nTEClayers_]);
-        all->setBinContent(i - 3, goodlayertotal[i] + goodlayertotal[i + nTEClayers_]);
+        found_good->setBinContent(i - 3, goodlayerfound[i] + goodlayerfound[i + nTEClayers_]);
+        all_good->setBinContent(i - 3, goodlayertotal[i] + goodlayertotal[i + nTEClayers_]);
       }
       LOGPRINT << "Filling all modules layer " << i - 3
                << ":  S = " << alllayerfound[i] + alllayerfound[i + nTEClayers_]
                << "    B = " << alllayertotal[i] + alllayertotal[i + nTEClayers_];
       if (alllayertotal[i] + alllayertotal[i + nTEClayers_] > 5) {
-        found2->setBinContent(i - 3, alllayerfound[i] + alllayerfound[i + nTEClayers_]);
-        all2->setBinContent(i - 3, alllayertotal[i] + alllayertotal[i + nTEClayers_]);
+        found_all->setBinContent(i - 3, alllayerfound[i] + alllayerfound[i + nTEClayers_]);
+        all_all->setBinContent(i - 3, alllayertotal[i] + alllayertotal[i + nTEClayers_]);
       }
     }
   }
 
-  found->getTH1F()->Sumw2();
-  all->getTH1F()->Sumw2();
+  found_good->getTH1F()->Sumw2();
+  all_good->getTH1F()->Sumw2();
 
-  found2->getTH1F()->Sumw2();
-  all2->getTH1F()->Sumw2();
+  found_all->getTH1F()->Sumw2();
+  all_all->getTH1F()->Sumw2();
 
   MonitorElement* h_eff_all =
       booker.book1D("eff_all", "Strip hit efficiency for all modules", nLayers + 1, 0, nLayers + 1);
   MonitorElement* h_eff_good =
       booker.book1D("eff_good", "Strip hit efficiency for good modules", nLayers + 1, 0, nLayers + 1);
 
-  for (int i = 1; i < found->getNbinsX(); i++) {
-    const auto& den_all = all2->getBinContent(i);
-    const auto& num_all = found2->getBinContent(i);
-    const auto& den_good = all->getBinContent(i);
-    const auto& num_good = found->getBinContent(i);
+  if (doProfiles) {
+    // now do the profile
+    TProfile* profile_all = ::computeEff(found_all->getTH1F(), all_all->getTH1F(), "all");
+    profile_all->SetMinimum(tkMapMin_);
+    profile_all->SetTitle("Strip hit efficiency for all modules");
+    booker.bookProfile(profile_all->GetName(), profile_all);
+
+    TProfile* profile_good = ::computeEff(found_good->getTH1F(), all_good->getTH1F(), "good");
+    profile_good->SetMinimum(tkMapMin_);
+    profile_good->SetTitle("Strip hit efficiency for good modules");
+    booker.bookProfile(profile_good->GetName(), profile_good);
+
+    // clean the house
+    delete profile_all;
+    delete profile_good;
+  }
+
+  for (int i = 1; i < found_good->getNbinsX(); i++) {
+    const auto& den_all = all_all->getBinContent(i);
+    const auto& num_all = found_all->getBinContent(i);
+    const auto& den_good = all_good->getBinContent(i);
+    const auto& num_good = found_good->getBinContent(i);
 
     // fill all modules efficiency
     if (den_all > 0.) {
-      float eff_all = num_all / den_all;
-      float err_eff_all = (eff_all * (1 - eff_all)) / den_all;
-      h_eff_all->setBinContent(i, eff_all);
-      h_eff_all->setBinError(i, err_eff_all);
+      // naive binomial errors
+      //float eff_all = num_all / den_all;
+      //float err_eff_all = (eff_all * (1 - eff_all)) / den_all;
+
+      // use Clopper-Pearson errors
+      const auto& effPair_all = ::computeCPEfficiency(num_all, den_all);
+      h_eff_all->setBinContent(i, effPair_all.value());
+      h_eff_all->setBinError(i, effPair_all.error());
     }
 
     // fill good modules efficiency
     if (den_good > 0.) {
-      float eff_good = num_good / den_good;
-      float err_eff_good = (eff_good * (1 - eff_good)) / den_good;
-      h_eff_good->setBinContent(i, eff_good);
-      h_eff_good->setBinError(i, err_eff_good);
+      // naive binomial errors
+      //float eff_good = num_good / den_good;
+      //float err_eff_good = (eff_good * (1 - eff_good)) / den_good;
+
+      // use Clopper-Pearson errors
+      const auto& effPair_good = ::computeCPEfficiency(num_good, den_good);
+      h_eff_good->setBinContent(i, effPair_good.value());
+      h_eff_good->setBinError(i, effPair_good.error());
     }
   }
 
@@ -703,11 +724,11 @@ void SiStripHitEfficiencyHarvester::makeSummary(DQMStore::IGetter& getter, DQMSt
 
     TGraphAsymmErrors* gr = (*fs).make<TGraphAsymmErrors>(nLayers + 1);
     gr->SetName("eff_good");
-    gr->BayesDivide(found->getTH1F(), all->getTH1F());
+    gr->BayesDivide(found_good->getTH1F(), all_good->getTH1F());
 
     TGraphAsymmErrors* gr2 = (*fs).make<TGraphAsymmErrors>(nLayers + 1);
     gr2->SetName("eff_all");
-    gr2->BayesDivide(found2->getTH1F(), all2->getTH1F());
+    gr2->BayesDivide(found_all->getTH1F(), all_all->getTH1F());
 
     for (unsigned int j = 0; j < nLayers + 1; j++) {
       gr->SetPointError(j, 0., 0., gr->GetErrorYlow(j), gr->GetErrorYhigh(j));
@@ -774,7 +795,7 @@ void SiStripHitEfficiencyHarvester::setEffBinLabels(const T gr, const T gr2, con
       << " showEndcapSides: " << showEndcapSides_ << " type of object is "
       << boost::typeindex::type_id<T>().pretty_name();
 
-  for (Long_t k = 1; k < nLayers + 1; k++) {
+  for (unsigned int k = 1; k < nLayers + 1; k++) {
     std::string label{};
     if (showEndcapSides_)
       label = ::layerSideName(k, showRings_, nTEClayers_);
@@ -816,45 +837,103 @@ void SiStripHitEfficiencyHarvester::setEffBinLabels(const T gr, const T gr2, con
   }
 }
 
-// not yet implemented
-void SiStripHitEfficiencyHarvester::makeSummaryVsBX(DQMStore::IGetter& getter, TFileService& fs) const {
-  // use found/totalVsBx_layer%i [0,23)
-}
+void SiStripHitEfficiencyHarvester::makeSummaryVsVariable(DQMStore::IGetter& getter,
+                                                          DQMStore::IBooker& booker,
+                                                          ::projections theProj,
+                                                          bool doProfiles) const {
+  std::vector<MonitorElement*> effVsVariable;
+  effVsVariable.reserve(showRings_ ? 20 : 22);
 
-// not yet impelement
-void SiStripHitEfficiencyHarvester::makeSummaryVsCM(DQMStore::IGetter& getter, TFileService& fs) const {}
+  const auto& folderString = ::projFolder[theProj];
+  const auto& foundHistoString = ::projFoundHisto[theProj];
+  const auto& totalHistoString = ::projTotalHisto[theProj];
+  const auto& titleString = ::projTitle[theProj];
+  const auto& titleXString = ::projXtitle[theProj];
 
-void SiStripHitEfficiencyHarvester::makeSummaryVsLumi(DQMStore::IGetter& getter) const {
+  LogDebug("SiStripHitEfficiencyHarvester")
+      << " inside" << __PRETTY_FUNCTION__ << " from " << ::projFolder[theProj] << " " << __LINE__ << std::endl;
+
   for (unsigned int iLayer = 1; iLayer != (showRings_ ? 20 : 22); ++iLayer) {
-    auto hfound = getter.get(fmt::format("{}/VsLumi/layerfound_vsLumi_layer_{}", inputFolder_, iLayer))->getTH1F();
-    auto htotal = getter.get(fmt::format("{}/VsLumi/layertotal_vsLumi_layer_{}", inputFolder_, iLayer))->getTH1F();
+    LogDebug("SiStripHitEfficiencyHarvester")
+        << "iLayer " << iLayer << " " << fmt::format("{}/{}/{}{}", inputFolder_, folderString, foundHistoString, iLayer)
+        << std::endl;
+
+    const auto lyrName = ::layerName(iLayer, showRings_, nTEClayers_);
+    auto hfound = getter.get(fmt::format("{}/{}/{}{}", inputFolder_, folderString, foundHistoString, iLayer));
+    auto htotal = getter.get(fmt::format("{}/{}/{}{}", inputFolder_, folderString, totalHistoString, iLayer));
 
     if (hfound == nullptr or htotal == nullptr) {
       if (hfound == nullptr)
         edm::LogError("SiStripHitEfficiencyHarvester")
-            << fmt::format("{}/VsLumi/layerfound_vsLumi_layer_{}", inputFolder_, iLayer) << " was not found!";
+            << fmt::format("{}/{}/{}{}", inputFolder_, folderString, foundHistoString, iLayer) << " was not found!";
       if (htotal == nullptr)
         edm::LogError("SiStripHitEfficiencyHarvester")
-            << fmt::format("{}/VsLumi/layertotal_vsLumi_layer_{}", inputFolder_, iLayer) << " was not found!";
+            << fmt::format("{}/{}/{}{}", inputFolder_, folderString, totalHistoString, iLayer) << " was not found!";
       // no input histograms -> continue in the loop
       continue;
     }
 
-    if (!hfound->GetSumw2())
-      hfound->Sumw2();
-    if (!htotal->GetSumw2())
-      htotal->Sumw2();
-    for (Long_t i = 0; i != hfound->GetNbinsX() + 1; ++i) {
-      if (hfound->GetBinContent(i) == 0)
-        hfound->SetBinContent(i, 1e-6);
-      if (htotal->GetBinContent(i) == 0)
-        htotal->SetBinContent(i, 1);
+    // in order to display correct errors when taking the ratio
+    if (!hfound->getTH1F()->GetSumw2())
+      hfound->getTH1F()->Sumw2();
+    if (!htotal->getTH1F()->GetSumw2())
+      htotal->getTH1F()->Sumw2();
+
+    // prevent dividing by 0
+    for (int i = 0; i != hfound->getNbinsX() + 1; ++i) {
+      if (hfound->getBinContent(i) == 0)
+        hfound->setBinContent(i, 1e-6);
+      if (htotal->getBinContent(i) == 0)
+        htotal->setBinContent(i, 1);
     }
+    LogDebug("SiStripHitEfficiencyHarvester") << "Total hits for layer " << iLayer << " (" << folderString
+                                              << "): " << htotal->getEntries() << ", found " << hfound->getEntries();
+
+    booker.setCurrentFolder(fmt::format("{}/EfficiencySummary{}", inputFolder_, folderString));
+    effVsVariable[iLayer] = booker.book1D(
+        fmt::sprintf("eff%sLayer%s", folderString, lyrName),
+        fmt::sprintf("Efficiency vs %s for layer %s;%s;SiStrip Hit efficiency", titleString, lyrName, titleXString),
+        hfound->getNbinsX(),
+        hfound->getAxisMin(),
+        hfound->getAxisMax());
+
+    effVsVariable[iLayer]->setOption("e");
+
     LogDebug("SiStripHitEfficiencyHarvester")
-        << "Total hits for layer " << iLayer << " (vs lumi): " << htotal->GetEntries() << ", found "
-        << hfound->GetEntries();
-  }
-  // continue
+        << " bin 0 " << hfound->getAxisMin() << " bin last: " << hfound->getAxisMax() << std::endl;
+
+    for (int i = 0; i != hfound->getNbinsX() + 1; ++i) {
+      const auto& den = htotal->getBinContent(i);
+      const auto& num = hfound->getBinContent(i);
+
+      // fill all modules efficiency
+      if (den > 0.) {
+        const auto& effPair = ::computeCPEfficiency(num, den);
+        effVsVariable[iLayer]->setBinContent(i, effPair.value());
+        effVsVariable[iLayer]->setBinError(i, effPair.error());
+
+        LogDebug("SiStripHitEfficiencyHarvester")
+            << __PRETTY_FUNCTION__ << " " << lyrName << " bin:" << i << " err:" << effPair.error() << std::endl;
+      }
+    }
+
+    // graphics adjustment
+    effVsVariable[iLayer]->getTH1F()->SetMinimum(tkMapMin_);
+
+    if (doProfiles) {
+      // now do the profile
+      TProfile* profile = ::computeEff(hfound->getTH1F(), htotal->getTH1F(), lyrName);
+      profile->SetOption("s");
+      TString title =
+          fmt::sprintf("Efficiency vs %s for layer %s;%s;SiStrip Hit efficiency", titleString, lyrName, titleXString);
+      profile->SetMinimum(tkMapMin_);
+
+      profile->SetTitle(title.Data());
+      booker.bookProfile(profile->GetName(), profile);
+
+      delete profile;
+    }
+  }  // loop on layers
 }
 
 namespace {

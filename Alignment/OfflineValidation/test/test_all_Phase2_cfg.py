@@ -12,7 +12,7 @@ isMC = True
 allFromGT = True
 applyBows = True
 applyExtraConditions = True
-theRefitter = RefitType.STANDARD
+theRefitter = RefitType.COMMON
 _theTrackCollection = "generalTracks" #"ALCARECOTkAlMinBias" unfortunately not yet
 
 from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
@@ -59,7 +59,7 @@ process.MessageLogger.cout = cms.untracked.PSet(
     threshold = cms.untracked.string("INFO"),
     default   = cms.untracked.PSet(limit = cms.untracked.int32(0)),                       
     FwkReport = cms.untracked.PSet(limit = cms.untracked.int32(-1),
-                                   reportEvery = cms.untracked.int32(1000)
+                                   reportEvery = cms.untracked.int32(1)
                                    ),                                                      
     PrimaryVertexValidation = cms.untracked.PSet( limit = cms.untracked.int32(-1)),
     SplitVertexResolution   = cms.untracked.PSet( limit = cms.untracked.int32(-1)),
@@ -193,7 +193,7 @@ if(theRefitter == RefitType.COMMON):
      # Load and Configure Common Track Selection and refitting sequence
      ####################################################################
      import Alignment.CommonAlignment.tools.trackselectionRefitting as trackselRefit
-     process.seqTrackselRefit = trackselRefit.getSequence(process, 'ALCARECOTkAlMinBias',
+     process.seqTrackselRefit = trackselRefit.getSequence(process, _theTrackCollection ,
                                                           isPVValidation=True, 
                                                           TTRHBuilder='WithAngleAndTemplate',
                                                           usePixelQualityFlag=True,
@@ -232,10 +232,12 @@ elif (theRefitter == RefitType.STANDARD):
      ####################################################################
      # Sequence
      ####################################################################
+     process.load("RecoLocalTracker.SiPixelRecHits.SiPixelTemplateStoreESProducer_cfi")
      process.seqTrackselRefit = cms.Sequence(process.offlineBeamSpot*
                                              # in case NavigatioSchool is set !='' 
                                              #process.MeasurementTrackerEvent*
-                                             process.FinalTrackRefitter)     
+                                             process.FinalTrackRefitter,
+                                             cms.Task(process.SiPixelTemplateStoreESProducer))
 
 ####################################################################
 # Output file
@@ -256,7 +258,7 @@ FilteringParams = offlinePrimaryVertices.TkFilterParameters.clone(
 )
 
 ## MM 04.05.2017 (use settings as in: https://github.com/cms-sw/cmssw/pull/18330)
-from RecoVertex.PrimaryVertexProducer.TkClusParameters_cff import DA_vectParameters
+from RecoVertex.PrimaryVertexProducer.OfflinePrimaryVertices_cfi import DA_vectParameters
 DAClusterizationParams = DA_vectParameters.clone()
 
 GapClusterizationParams = cms.PSet(algorithm   = cms.string('gap'),
@@ -294,6 +296,11 @@ process.PVValidation = cms.EDAnalyzer("PrimaryVertexValidation",
                                       TkFilterParameters = FilteringParams,
                                       TkClusParameters = switchClusterizerParameters(isDA)
                                       )
+
+####################################################################
+# Needed to avoid dependency from Phase-0 strip conditions
+####################################################################
+#process.TrackerTrackHitFilter.isPhase2 = cms.bool(True)
 
 ####################################################################
 # Path
@@ -348,10 +355,10 @@ process.PrimaryVertexResolution = cms.EDAnalyzer('SplitVertexResolution',
                                                  runControl = cms.untracked.bool(True),
                                                  runControlNumber = cms.untracked.vuint32(int(runboundary))
                                                  )
+#process.Tracer = cms.Service("Tracer")
 
 process.p2 = cms.Path(process.HLTFilter                               +
                       process.seqTrackselRefit                        +
                       process.offlinePrimaryVerticesFromRefittedTrks  +
                       process.PrimaryVertexResolution                 +
-                      process.myanalysis
-                      )
+                      process.myanalysis)

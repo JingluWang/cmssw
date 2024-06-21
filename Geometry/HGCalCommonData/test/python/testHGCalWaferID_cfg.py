@@ -1,9 +1,44 @@
+###############################################################################
+# Way to use this:
+#   cmsRun testHGCalWaferID_cfg.py type=V17
+#
+#   Options for type V16, V17, V17Shift, V18
+#
+###############################################################################
 import FWCore.ParameterSet.Config as cms
-from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
+import os, sys, imp, re
+import FWCore.ParameterSet.VarParsing as VarParsing
 
-process = cms.Process('HGCalWafer',Phase2C17I13M9)
+####################################################################
+### SETUP OPTIONS
+options = VarParsing.VarParsing('standard')
+options.register('type',
+                 "V17",
+                  VarParsing.VarParsing.multiplicity.singleton,
+                  VarParsing.VarParsing.varType.string,
+                  "type of operations: V16, V17, V17Shift, V18")
 
-geomFile = "Configuration.Geometry.GeometryExtended2026D92_cff"
+### get and parse the command line arguments
+options.parseArguments()
+print(options)
+
+if (options.type == "V18"):
+        from Configuration.Eras.Era_Phase2C22I13M9_cff import Phase2C22I13M9
+        process = cms.Process("HGCalWaferIDTest",Phase2C22I13M9)
+else:
+        from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
+        process = cms.Process("HGCalWaferIDTest",Phase2C17I13M9)
+
+####################################################################
+# Use the options
+if (options.type == "V18"):
+    geomFile = "Configuration.Geometry.GeometryExtended2026D104_cff"
+elif (options.type == "V17Shift"):
+    geomFile = "Geometry.HGCalCommonData.testHGCalV17ShiftReco_cff"
+elif (options.type == "V16"):
+    geomFile = "Configuration.Geometry.GeometryExtended2026D98_cff"
+else:
+    geomFile = "Configuration.Geometry.GeometryExtended2026D99_cff"
 
 print("Geometry file: ", geomFile)
 
@@ -12,6 +47,7 @@ process.load(geomFile)
 process.load('FWCore.MessageService.MessageLogger_cfi')
 
 if hasattr(process,'MessageLogger'):
+    process.MessageLogger.HGCalGeomW=dict()
     process.MessageLogger.HGCalGeom=dict()
 
 process.load("IOMC.RandomEngine.IOMC_cff")
@@ -40,5 +76,7 @@ process.maxEvents = cms.untracked.PSet(
 
 process.load("Geometry.HGCalCommonData.hgcalWaferIDTester_cff")
 
- 
-process.p1 = cms.Path(process.generator*process.hgcalWaferIDTesterHEF)
+if (options.type == "V17Shift"):
+    process.p1 = cms.Path(process.generator*process.hgcalWaferIDShiftTesterEE*process.hgcalWaferIDShiftTesterHEF)
+else: 
+    process.p1 = cms.Path(process.generator*process.hgcalWaferIDTesterEE*process.hgcalWaferIDTesterHEF)

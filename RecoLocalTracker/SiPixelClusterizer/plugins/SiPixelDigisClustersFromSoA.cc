@@ -14,12 +14,14 @@
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
-#include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "Geometry/CommonTopologies/interface/SimplePixelTopology.h"
+#include "Geometry/Records/interface/TrackerTopologyRcd.h"
+#include "RecoLocalTracker/SiPixelClusterizer/interface/SiPixelClusterThresholds.h"
 
 // local include(s)
 #include "PixelClusterizerBase.h"
-#include "SiPixelClusterThresholds.h"
+
+//#define GPU_DEBUG
 
 template <typename TrackerTraits>
 class SiPixelDigisClustersFromSoAT : public edm::global::EDProducer<> {
@@ -34,7 +36,7 @@ private:
 
   const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topoToken_;
 
-  edm::EDGetTokenT<SiPixelDigisSoA> digiGetToken_;
+  edm::EDGetTokenT<legacy::SiPixelDigisSoA> digiGetToken_;
 
   edm::EDPutTokenT<edm::DetSetVector<PixelDigi>> digiPutToken_;
   edm::EDPutTokenT<SiPixelClusterCollectionNew> clusterPutToken_;
@@ -48,12 +50,12 @@ private:
 template <typename TrackerTraits>
 SiPixelDigisClustersFromSoAT<TrackerTraits>::SiPixelDigisClustersFromSoAT(const edm::ParameterSet& iConfig)
     : topoToken_(esConsumes()),
-      digiGetToken_(consumes<SiPixelDigisSoA>(iConfig.getParameter<edm::InputTag>("src"))),
+      digiGetToken_(consumes<legacy::SiPixelDigisSoA>(iConfig.getParameter<edm::InputTag>("src"))),
       clusterPutToken_(produces<SiPixelClusterCollectionNew>()),
-      clusterThresholds_{iConfig.getParameter<int>("clusterThreshold_layer1"),
-                         iConfig.getParameter<int>("clusterThreshold_otherLayers")},
+      clusterThresholds_(iConfig.getParameter<int>("clusterThreshold_layer1"),
+                         iConfig.getParameter<int>("clusterThreshold_otherLayers")),
       produceDigis_(iConfig.getParameter<bool>("produceDigis")),
-      storeDigis_(iConfig.getParameter<bool>("produceDigis") & iConfig.getParameter<bool>("storeDigis")) {
+      storeDigis_(iConfig.getParameter<bool>("produceDigis") && iConfig.getParameter<bool>("storeDigis")) {
   if (produceDigis_)
     digiPutToken_ = produces<edm::DetSetVector<PixelDigi>>();
 }
@@ -62,8 +64,8 @@ template <typename TrackerTraits>
 void SiPixelDigisClustersFromSoAT<TrackerTraits>::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("siPixelDigisSoA"));
-  desc.add<int>("clusterThreshold_layer1", kSiPixelClusterThresholdsDefaultPhase1.layer1);
-  desc.add<int>("clusterThreshold_otherLayers", kSiPixelClusterThresholdsDefaultPhase1.otherLayers);
+  desc.add<int>("clusterThreshold_layer1", gpuClustering::clusterThresholdLayerOne);
+  desc.add<int>("clusterThreshold_otherLayers", gpuClustering::clusterThresholdOtherLayers);
   desc.add<bool>("produceDigis", true);
   desc.add<bool>("storeDigis", true);
 
@@ -108,7 +110,7 @@ void SiPixelDigisClustersFromSoAT<TrackerTraits>::produce(edm::StreamID,
   }
 
   int32_t nclus = -1;
-  PixelClusterizerBase::AccretionCluster aclusters[gpuClustering::maxNumClustersPerModules];
+  PixelClusterizerBase::AccretionCluster aclusters[TrackerTraits::maxNumClustersPerModules];
 #ifdef EDM_ML_DEBUG
   auto totClustersFilled = 0;
 #endif
@@ -122,7 +124,7 @@ void SiPixelDigisClustersFromSoAT<TrackerTraits>::produce(edm::StreamID,
     for (int32_t ic = 0; ic < nclus + 1; ++ic) {
       auto const& acluster = aclusters[ic];
       // in any case we cannot  go out of sync with gpu...
-      if (!std::is_base_of<pixelTopology::Phase2, TrackerTraits>::value and acluster.charge < clusterThreshold)
+      if (acluster.charge < clusterThreshold)
         edm::LogWarning("SiPixelDigisClustersFromSoA") << "cluster below charge Threshold "
                                                        << "Layer/DetId/clusId " << layer << '/' << detId << '/' << ic
                                                        << " size/charge " << acluster.isize << '/' << acluster.charge;
@@ -148,6 +150,10 @@ void SiPixelDigisClustersFromSoAT<TrackerTraits>::produce(edm::StreamID,
       spc.abort();
   };
 
+#ifdef GPU_DEBUG
+  std::cout << "Dumping all digis. nDigis = " << nDigis << std::endl;
+#endif
+
   for (uint32_t i = 0; i < nDigis; i++) {
     // check for uninitialized digis
     if (digis.rawIdArr(i) == 0)
@@ -161,6 +167,9 @@ void SiPixelDigisClustersFromSoAT<TrackerTraits>::produce(edm::StreamID,
     assert(digis.rawIdArr(i) > 109999);
 #endif
     if (detId != digis.rawIdArr(i)) {
+#ifdef GPU_DEBUG
+      std::cout << ">> Closed module --" << detId << "; nclus = " << nclus << std::endl;
+#endif
       // new module
       fillClusters(detId);
 #ifdef EDM_ML_DEBUG
@@ -178,12 +187,18 @@ void SiPixelDigisClustersFromSoAT<TrackerTraits>::produce(edm::StreamID,
       }
     }
     PixelDigi dig(digis.pdigi(i));
+
+#ifdef GPU_DEBUG
+    std::cout << i << ";" << digis.rawIdArr(i) << ";" << digis.clus(i) << ";" << digis.pdigi(i) << ";" << digis.adc(i)
+              << ";" << dig.row() << ";" << dig.column() << std::endl;
+#endif
+
     if (storeDigis_)
       (*detDigis).data.emplace_back(dig);
       // fill clusters
 #ifdef EDM_ML_DEBUG
     assert(digis.clus(i) >= 0);
-    assert(digis.clus(i) < gpuClustering::maxNumClustersPerModules);
+    assert(digis.clus(i) < static_cast<int32_t>(TrackerTraits::maxNumClustersPerModules));
 #endif
     nclus = std::max(digis.clus(i), nclus);
     auto row = dig.row();
@@ -205,9 +220,9 @@ void SiPixelDigisClustersFromSoAT<TrackerTraits>::produce(edm::StreamID,
   iEvent.put(clusterPutToken_, std::move(outputClusters));
 }
 
-using SiPixelDigisClustersFromSoA = SiPixelDigisClustersFromSoAT<pixelTopology::Phase1>;
-DEFINE_FWK_MODULE(SiPixelDigisClustersFromSoA);
 using SiPixelDigisClustersFromSoAPhase1 = SiPixelDigisClustersFromSoAT<pixelTopology::Phase1>;
 DEFINE_FWK_MODULE(SiPixelDigisClustersFromSoAPhase1);
 using SiPixelDigisClustersFromSoAPhase2 = SiPixelDigisClustersFromSoAT<pixelTopology::Phase2>;
 DEFINE_FWK_MODULE(SiPixelDigisClustersFromSoAPhase2);
+using SiPixelDigisClustersFromSoAHIonPhase1 = SiPixelDigisClustersFromSoAT<pixelTopology::HIonPhase1>;
+DEFINE_FWK_MODULE(SiPixelDigisClustersFromSoAHIonPhase1);

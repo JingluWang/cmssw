@@ -58,6 +58,7 @@ HGCScintSD::HGCScintSD(const std::string& name,
   storeAllG4Hits_ = m_HGC.getParameter<bool>("StoreAllG4Hits");
   checkID_ = m_HGC.getUntrackedParameter<bool>("CheckID");
   fileName_ = m_HGC.getUntrackedParameter<std::string>("TileFileName");
+  verbose_ = m_HGC.getUntrackedParameter<int>("Verbosity");
 
   if (storeAllG4Hits_) {
     setUseMap(false);
@@ -217,8 +218,10 @@ uint32_t HGCScintSD::setDetUnitId(const G4Step* aStep) {
   }
   if ((id != 0) && checkID_) {
     HGCScintillatorDetId hid1(id);
-    std::string_view pid = ((hgcons_->cassetteShiftScintillator(hid1.layer(), hid1.iphi())) ? "HGCSim" : "HGCalSim");
-    auto xy = hgcons_->locateCell(HGCScintillatorDetId(id), false);
+    std::string_view pid =
+        ((hgcons_->cassetteShiftScintillator(hid1.zside(), hid1.layer(), hid1.iphi())) ? "HGCSim" : "HGCalSim");
+    bool debug = (verbose_ > 0) ? true : false;
+    auto xy = hgcons_->locateCell(HGCScintillatorDetId(id), debug);
     double dx = xy.first - (hitPoint.x() / CLHEP::cm);
     double dy = xy.second - (hitPoint.y() / CLHEP::cm);
     double diff = std::sqrt(dx * dx + dy * dy);

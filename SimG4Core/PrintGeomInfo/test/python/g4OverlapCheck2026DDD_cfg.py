@@ -2,11 +2,13 @@
 # Way to use this:
 #   cmsRun g4OverlapCheck2026DDD_cfg.py geometry=D88 tol=0.1
 #
-#   Options for geometry D88, D92, D93
+#   Options for geometry D86, D88, D91, D92, D93, D94, D95, D96, D98, D99,
+#                        D100, D101, D102, D103, D104, D105, D106, D107,
+#                        D108, D109, D110, D111, D112, D113
 #
 ###############################################################################
 import FWCore.ParameterSet.Config as cms
-import os, sys, imp, re
+import os, sys, importlib, re
 import FWCore.ParameterSet.VarParsing as VarParsing
 
 ####################################################################
@@ -16,12 +18,12 @@ options.register('geometry',
                  "D88",
                   VarParsing.VarParsing.multiplicity.singleton,
                   VarParsing.VarParsing.varType.string,
-                  "geometry of operations: D88, D92, D93")
+                  "geometry of operations: D86, D88, D91, D92, D93, D94, D95, D96, D98, D99, D100, D101, D102, D103, D104, D105, D106, D107, D108, D109, D110, D111, D112, D113")
 options.register('tol',
-                 0.1,
+                 0.01,
                  VarParsing.VarParsing.multiplicity.singleton,
                  VarParsing.VarParsing.varType.float,
-                 "Tolerance for checking overlaps: 0.01, 0.1, 1.0"
+                 "Tolerance for checking overlaps: 0.0, 0.01, 0.1, 1.0"
 )
 
 ### get and parse the command line arguments
@@ -32,24 +34,20 @@ print(options)
 ####################################################################
 # Use the options
 
-if (options.geometry == "D92"):
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    process = cms.Process('PROD',Phase2C11M9)
-    process.load('Configuration.Geometry.GeometryExtended2026D92Reco_cff')
-    baseName = 'cms2026D92DDD'
-elif (options.geometry == "D93"):
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    process = cms.Process('PROD',Phase2C11M9)
-    process.load('Configuration.Geometry.GeometryExtended2026D93Reco_cff')
-    baseName = 'cms2026D93DDD'
+if (options.geometry == "D94"):
+    from Configuration.Eras.Era_Phase2C20I13M9_cff import Phase2C20I13M9
+    process = cms.Process('OverlapCheck',Phase2C20I13M9)
 else:
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    process = cms.Process('PROD',Phase2C11M9)
-    process.load('Configuration.Geometry.GeometryExtended2026D88Reco_cff')
-    baseName = 'cms2026D88DDD'
+    from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
+    process = cms.Process('OverlapCheck',Phase2C17I13M9)
 
-print("Base file Name: ", baseName)
+geomFile = "Configuration.Geometry.GeometryExtended2026" + options.geometry + "Reco_cff"
+baseName = "cms2026" + options.geometry + "DDD"
 
+print("Geometry file Name: ", geomFile)
+print("Base file Name:     ", baseName)
+
+process.load(geomFile)
 process.load('FWCore.MessageService.MessageLogger_cfi')
 
 #if hasattr(process,'MessageLogger'):

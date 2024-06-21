@@ -71,13 +71,12 @@ if not unitTest:
     process.source.skipFirstLumis                = True
     process.source.minEventsPerLumi              = 0
     process.source.nextLumiTimeoutMillis         = 10000
-    process.source.streamLabel                   = 'streamDQM'
     if options.BeamSplashRun :
       set_BeamSplashRun_settings( process.source )
 
     m = re.search(r"\((\w+)\)", str(source.runNumber))
     runno = str(m.group(1))
-    outDir= '/fff/BU0/output/EvD/run'+runno+'/streamEvDOutput'
+    outDir= options.outputBaseDir+'/EvD/run'+runno+'/streamEvDOutput'
 else:
     runno = options.runNumber
     outDir = "./upload"

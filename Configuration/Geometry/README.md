@@ -31,7 +31,9 @@ Calorimeters:
 * C1: 2021 baseline
 
 Muon system:
-* M1: 2021 baseline
+* M1: 2021 baseline with additional chambers in GE21 and iRPC31/41
+* M2: 2023 GE21 shifted in position
+* M3: 2024 with additional chambers in GE21 and iRPC31
 
 PPS:
 * P7: 2021 baseline (after removing overlaps and using common materials whenever possible)
@@ -41,6 +43,8 @@ The script also handles the common and forward elements of the geometry:
 * O5: as O6, but with trackermaterial removed (they are in T5, T6, T7, T8)
 * O6: 2021 baseline
 * F1: 2021 baseline
+* F2: same as F1 with modified file zdc.xmlfrom ZDC group
+* F3: same as F2 with added simulti geometry for RPD
 
 Several detector combinations have been generated:
 * 2021 = T3+C1+M1+P7+O6+F1
@@ -49,6 +53,18 @@ Several detector combinations have been generated:
 * 2021FlatMinus10Percent = T6+C1+M1+P7+O5+F1
 * 2021FlatPlus05Percent = T7+C1+M1+P7+O5+F1
 * 2021FlatPlus10Percent = T8+C1+M1+P7+O5+F1
+* 2023 = T3+C1+M2+P7+O6+F3
+* 2023ZeroMaterial = T4+C1+M2+P7+O4+F2
+* 2023FlatMinus05Percent = T5+C1+M2+P7+O5+F2
+* 2023FlatMinus10Percent = T6+C1+M2+P7+O5+F2
+* 2023FlatPlus05Percent = T7+C1+M2+P7+O5+F2
+* 2023FlatPlus10Percent = T8+C1+M2+P7+O5+F2
+* 2024 = T3+C1+M3+P7+O6+F3
+* 2024ZeroMaterial = T4+C1+M3+P7+O4+F2
+* 2024FlatMinus05Percent = T5+C1+M3+P7+O5+F2
+* 2024FlatMinus10Percent = T6+C1+M3+P7+O5+F2
+* 2024FlatPlus05Percent = T7+C1+M3+P7+O5+F2
+* 2024FlatPlus10Percent = T8+C1+M3+P7+O5+F2
 
 # Phase 2 Geometries
 
@@ -65,6 +81,14 @@ Tracker:
 * T26: Phase2 tilted tracker. Outer Tracker (v8.0.0): same as T24/T21. Inner Tracker (v7.0.3): Based on (v6.1.5) (T24/T21), but with 3D sensors in TBPX L1 and 50x50 pixel aspect ratio in TFPX and TEPX. Compatible with DD4hep library.
 * T30: Phase2 tilted tracker. Exploratory geometry *only to be used in D91 for now*. Outer Tracker (v8.0.1): based on v8.0.0 with updated TB2S spacing. Inner Tracker (v6.4.0): based on v6.1.5 but TFPX with more realistic module positions.
 * T31: Phase2 tilted tracker. The tracker description is identical to T24/T21. The outer radius of the tracker volume is reduced to avoid a clash with the BTL geometry. The positions of the tracker components are not affected
+* T32: Phase2 tilted tracker. The tracker description is identical to T25. The outer radius of the tracker volume is reduced to avoid a clash with the BTL geometry (same as T31). The positions of the tracker components are not affected. This geometry is intended as a transition step towards a realistic configuration with 3D sensors in TBPX layer1.
+* T33: Phase2 tilted tracker. Identical to T32 apart from a more realistic description of the 3D sensors in TBPX layer1.
+* T34: Same as T32 with the exception of modified Tracker volume so that it touches CALO on the outer side and BeamPipe on the inner side
+* T35: Same as T33 with the exception of modified Tracker volume so that it touches CALO on the outer side and BeamPipe on the inner side
+* T36: OT (v8.0.6): increased (smallDelta +300 micron) inter-ladder radial spacing TB2S. IT (v7.4.1): TBPX as in T35 with 0.4 mm gap between Z+ and Z-
+* T37: OT (v8.0.6): increased (smallDelta +300 micron) inter-ladder radial spacing TB2S. IT (v7.4.2): TBPX as in T35 with 0.7+0.4+0.7 mm gap between Z+ and Z-
+* T38: OT (v8.0.6): increased (smallDelta +300 micron) inter-ladder radial spacing TB2S. IT (v7.4.4): TBPX as in T35 with 1.3+0.4+1.3 mm gap between Z+ and Z-
+* T39: Same as T35 but introducing BigPixels in InnerTracker (1x2 planar and 2x2 planar modules)
 
 Calorimeters:
 * C9: HGCal (v11 post TDR HGCal Geometry w/ corner centering for HE part) + Phase2 HCAL and EB + Tracker cables (used in 2026D49)
@@ -78,6 +102,10 @@ Calorimeters:
 * C18: HGCal (v17 version of HGCal geometry created for a new flat file for silicon having 47 layers, ideas of cassettes, new orientation indices for full and partial wafers) + Phase2 HCAL and EB (used in 2026D92)
 * C19: HGCal (v17 version of HGCal geometry as in C18 but without internal cells in the Geant4 geometry definition) + Phase2 HCAL and EB (used in 2026D93)
 * C20: HGCal (v17 version of HGCal geometry as in C18) + HFNose with corrected wafer size + Phase2 HCAL and EB (used in 2026D93)
+* C21: HGCal (v17 version of HGCal geometry as in C19 but turning off all dead areas and gaps) + Phase2 HCAL and EB (used in 2026D101)
+* C22: HGCal (v18 version of HGCal geometry as in C18 with calibration cells, nonzero cssette retraction, correct mousebite, guard ring, proper cell size) + Phase2 HCAL and EB (used in 2026D104)
+* C23: HGCal (same as the v18 version which is in C22 but without internal cells in the Geant4 geometry defintiion) + Phase2 HCAL and EB (used in 2026D106)
+* C24: HGCal (v18 version of HGCal geometry as in C122 but turning off all dead areas and gaps) + Phase2 HCAL and EB (used in 2026D109)
 
 Muon system:
 * M4: Phase2 muon system for TDR w/ GE2/1, ME0, RE3/1, RE4/1 (incl. granularity in ME0, staggered GE2/1), 96 iRPC strips, no overlaps, MB4Shields
@@ -86,6 +114,7 @@ Muon system:
 * M8: same as M7 with changed number of strips for GE21
 * M9: same as M8 with GE0 replacing ME0
 * M10: same as M9 but with a realistic support structure for GE0, Shield structure modified in muonYoke
+* M11: same as M10 but with a corrected eta partition sizes for GE21
 
 Fast Timing system:
 * I10: Fast Timing detector (LYSO barrel (bars along phi flat), silicon endcap), w/ passive materials, ETL in position defined in O4, material adjustments
@@ -95,6 +124,7 @@ Fast Timing system:
 * I14: Same as I13, updated sensor structure, disc z location and passive materials
 * I15: Same as I14, addition of notch and revision of envelope
 * I16: Starting from I15, revised BTL with complete passive material description, it needs Tracker T31 or newer
+* I17: Same as I16, BTL with one crystal thickness (type) only, ETL with LGAD split into two sensors
 
 The script also handles the common and forward elements of the geometry:
 * O4: detailed cavern description, changes for modified CALO region for endcap part, no overlaps inside the Muon System 
@@ -113,12 +143,30 @@ The script also handles the common and forward elements of the geometry:
 * F8: same as F6 or F7 without BRM
 
 Several detector combinations have been generated:
-* D86 = T24+C17+M10+I14+O8+F6
-* D88 = T24+C17+M10+I15+O9+F6 (Current Phase-2 baseline)
-* D91 = T30+C17+M10+I15+O9+F6
-* D92 = T24+C18+M10+I15+O9+F6
-* D93 = T24+C19+M10+I15+O9+F6
+* D86 = T24+C17+M10+I14+O8+F8
+* D88 = T24+C17+M10+I15+O9+F8
+* D91 = T30+C17+M10+I15+O9+F8
+* D92 = T24+C18+M10+I15+O9+F8
+* D93 = T24+C19+M10+I15+O9+F8
 * D94 = T24+C20+M10+I15+O9+F8
-* D95 = T31+C17+M10+I16+O9+F6
-* D96 = T31+C18+M10+I16+O9+F6
-* D97 = T25+C17+M10+I15+O9+F6
+* D95 = T31+C17+M10+I16+O9+F8
+* D96 = T31+C18+M10+I16+O9+F8
+* D97 = T25+C17+M10+I15+O9+F8
+* D98 = T32+C17+M10+I16+O9+F8 (Current Phase-2 baseline from CMSSW_13_2_0_pre2)
+* D99 = T32+C18+M10+I16+O9+F8
+* D100 = T34+C17+M11+I16+O9+F8
+* D101 = T34+C18+M11+I16+O9+F8
+* D102 = T35+C17+M11+I16+O9+F8
+* D103 = T35+C21+M11+I17+O9+F8
+* D104 = T35+C22+M11+I16+O9+F8
+* D105 = T35+C17+M11+I17+O9+F8
+* D106 = T35+C23+M11+I17+O9+F8
+* D107 = T32+C17+M11+I17+O9+F8
+* D108 = T35+C19+M11+I17+O9+F8
+* D109 = T35+C24+M11+I17+O9+F8
+* D110 = T35+C18+M11+I17+O9+F8
+* D111 = T36+C24+M11+I17+O9+F8
+* D112 = T37+C24+M11+I17+O9+F8
+* D113 = T38+C24+M11+I17+O9+F8
+* D114 = T39+C19+M11+I17+O9+F8
+

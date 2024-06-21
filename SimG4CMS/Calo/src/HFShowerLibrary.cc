@@ -15,8 +15,8 @@
 #include "G4Track.hh"
 #include "G4ParticleTable.hh"
 #include "Randomize.hh"
-#include "CLHEP/Units/SystemOfUnits.h"
-#include "CLHEP/Units/PhysicalConstants.h"
+#include <CLHEP/Units/SystemOfUnits.h>
+#include <CLHEP/Units/PhysicalConstants.h>
 
 //#define EDM_ML_DEBUG
 namespace {
@@ -172,7 +172,7 @@ HFShowerLibrary::HFShowerLibrary(const Params& iParams, const FileParams& iFileP
   }
   emBranch_ = BranchReader(emBranch, fileFormat, 0, iFileParams.cacheBranches_ ? totEvents_ : 0);
   size_t offset = 0;
-  if (fileFormat == FileFormat::kNewV3 or (fileFormat == FileFormat::kNew and fileVersion < 2)) {
+  if ((fileFormat == FileFormat::kNewV3 && fileVersion < 3) || (fileFormat == FileFormat::kNew && fileVersion < 2)) {
     //NOTE: for this format, the hadBranch is all empty up to
     // totEvents_ (which is more like 1/2*GenEntries())
     offset = totEvents_;
@@ -258,7 +258,7 @@ std::vector<HFShowerLibrary::Hit> HFShowerLibrary::fillHits(const G4ThreeVector&
   ok = true;
 
   // remove low-energy component
-  const double threshold = 50 * MeV;
+  const double threshold = 50 * CLHEP::MeV;
   if (pin < threshold) {
     return hit;
   }

@@ -231,10 +231,7 @@ void TrackletProcessorDisplaced::addInput(MemoryBase* memory, string input) {
 
 void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, double phimax) {
   unsigned int countall = 0;
-  unsigned int countall_ = 0;
   unsigned int countsel = 0;
-  unsigned int countpass = 0;
-  unsigned int countpass_ = 0;
   // unsigned int nThirdStubs = 0;
   // unsigned int nOuterStubs = 0;
   count_ = 0;
@@ -363,8 +360,6 @@ void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, do
                 continue;
               }
 
-              countpass++;
-
               if ((layer2_ == 4 && layer3_ == 2) || (layer2_ == 6 && layer3_ == 4)) {
                 constexpr int vmbitshift = 10;
                 constexpr int andlookupbits_ = 1023;
@@ -392,11 +387,9 @@ void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, do
                         edm::LogVerbatim("Tracklet") << "In " << getName() << " have third stub\n";
                       }
 
-                      countall_++;
+                      countall++;
 
                       const VMStubTE& thirdvmstub = innervmstubs_.at(k)->getVMStubTEBinned(ibin_, l);
-
-                      countpass_++;
 
                       const Stub* innerFPGAStub = firstallstub;
                       const Stub* middleFPGAStub = secondvmstub.stub();
@@ -479,7 +472,6 @@ void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, do
                 edm::LogVerbatim("Tracklet") << "In " << getName() << " have second stub(1) " << ibin << " " << j;
               }
 
-              countall++;
               const VMStubTE& secondvmstub = outervmstubs_.at(m)->getVMStubTEBinned(ibin, j);
 
               int zbin = (secondvmstub.vmbits().value() & 7);
@@ -514,11 +506,9 @@ void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, do
                         edm::LogVerbatim("Tracklet") << "In " << getName() << " have third stub";
                       }
 
-                      countall_++;
+                      countall++;
 
                       const VMStubTE& thirdvmstub = innervmstubs_.at(k)->getVMStubTEBinned(ibin_, l);
-
-                      countpass_++;
 
                       const Stub* innerFPGAStub = firstallstub;
                       const Stub* middleFPGAStub = secondvmstub.stub();
@@ -594,8 +584,6 @@ void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, do
             }
 
             for (unsigned int j = 0; j < outervmstubs_.at(m)->nVMStubsBinned(ibin); j++) {
-              countall++;
-
               const VMStubTE& secondvmstub = outervmstubs_.at(m)->getVMStubTEBinned(ibin, j);
               int rbin = (secondvmstub.vmbits().value() & 7);
               if (start != ibin)
@@ -632,11 +620,9 @@ void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, do
                         edm::LogVerbatim("Tracklet") << "In " << getName() << " have third stub";
                       }
 
-                      countall_++;
+                      countall++;
 
                       const VMStubTE& thirdvmstub = innervmstubs_.at(k)->getVMStubTEBinned(ibin_, l);
-
-                      countpass_++;
 
                       const Stub* innerFPGAStub = firstallstub;
                       const Stub* middleFPGAStub = secondvmstub.stub();
@@ -677,5 +663,9 @@ void TrackletProcessorDisplaced::execute(unsigned int iSector, double phimin, do
         }
       }
     }
+  }
+
+  if (settings_.writeMonitorData("TPD")) {
+    globals_->ofstream("trackletprocessordisplaced.txt") << getName() << " " << countall << " " << countsel << endl;
   }
 }

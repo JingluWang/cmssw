@@ -115,7 +115,7 @@ namespace edm {
     }
 
     template <typename T>
-    std::vector<ESProxyIndex> const& ProducingModuleAdaptorBase<T>::esGetTokenIndicesVector(
+    std::vector<ESResolverIndex> const& ProducingModuleAdaptorBase<T>::esGetTokenIndicesVector(
         edm::Transition iTrans) const {
       assert(not m_streamModules.empty());
       return m_streamModules[0]->esGetTokenIndicesVector(iTrans);
@@ -162,7 +162,7 @@ namespace edm {
       }
     }
     template <typename T>
-    void ProducingModuleAdaptorBase<T>::updateLookup(eventsetup::ESRecordsToProxyIndices const& iPI) {
+    void ProducingModuleAdaptorBase<T>::updateLookup(eventsetup::ESRecordsToProductResolverIndices const& iPI) {
       for (auto mod : m_streamModules) {
         mod->updateLookup(iPI);
       }
@@ -184,11 +184,11 @@ namespace edm {
     }
 
     template <typename T>
-    ProductResolverIndex ProducingModuleAdaptorBase<T>::transformPrefetch_(size_t iTransformIndex) const {
+    ProductResolverIndex ProducingModuleAdaptorBase<T>::transformPrefetch_(size_t iTransformIndex) const noexcept {
       return 0;
     }
     template <typename T>
-    size_t ProducingModuleAdaptorBase<T>::transformIndex_(edm::BranchDescription const& iBranch) const {
+    size_t ProducingModuleAdaptorBase<T>::transformIndex_(edm::BranchDescription const& iBranch) const noexcept {
       return 0;
     }
     template <typename T>
@@ -196,8 +196,8 @@ namespace edm {
                                                          size_t iTransformIndex,
                                                          EventPrincipal const& iEvent,
                                                          ActivityRegistry*,
-                                                         ModuleCallingContext const* iMCC,
-                                                         ServiceWeakToken const&) {}
+                                                         ModuleCallingContext iMCC,
+                                                         ServiceWeakToken const&) noexcept {}
 
     template <typename T>
     void ProducingModuleAdaptorBase<T>::doBeginStream(StreamID id) {

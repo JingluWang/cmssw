@@ -6,12 +6,19 @@ CMS_DIR := ${SRCDIR}/RecoTracker/MkFitCMS
 
 LIB_CMS := ../libMicCMS.so
 MAIN    := ../mkFit
+MAIN_DEPS := ${LIB_CMS}
+MAIN_LIBS := -lMicCore -lMicCMS
 WRMEMF  := ../writeMemoryFile
-DICTPCM := ../DictsDict_rdict.pcm
+WMF_DICT_PCM := ../WriteMemFileDict_rdict.pcm
+SHELL_DICT_PCM := ../ShellDict_rdict.pcm
+ROOTOUT := WriteMemFileDict.cc ShellDict.cc
 
 TGTS := ${LIB_CMS} ${MAIN}
+
 ifdef WITH_ROOT
-TGTS += ${WRMEMF} ${DICTPCM}
+MAIN_DEPS += ../libMicRntDump.so
+MAIN_LIBS += -lMicRntDump
+TGTS += ${WRMEMF} ${WMF_DICT_PCM} ${SHELL_DICT_PCM}
 endif
 
 .PHONY: all clean distclean
@@ -19,12 +26,19 @@ endif
 all: ${TGTS}
 
 SRCS := $(wildcard ${CMS_DIR}/src/*.cc) $(wildcard ${SACMS}/*.cc)
+
 ifdef WITH_ROOT
 SRCS += ${SACMS}/tkNtuple/WriteMemoryFile.cc
-DictsDict.cc ${DICTPCM}: ${SACMS}/tkNtuple/DictsLinkDef.h
-	rootcint -v3 -f $@ $<
-	mv DictsDict_rdict.pcm ${DICTPCM}
+WriteMemFileDict.cc ${WMF_DICT_PCM} &: ${SACMS}/tkNtuple/DictsLinkDef.h
+	rootcling -I=${SRCDIR} -f WriteMemFileDict.cc $<
+	mv WriteMemFileDict_rdict.pcm ${WMF_DICT_PCM}
+
+SRCS += ShellDict.cc
+ShellDict.cc ${SHELL_DICT_PCM} &: ${SACMS}/ShellDict.h ${SACMS}/ShellLinkDef.h
+	rootcling -I=${SRCDIR} -f ShellDict.cc $^
+	mv ShellDict_rdict.pcm ${SHELL_DICT_PCM}
 endif
+
 SRCB := $(notdir ${SRCS})
 DEPS := $(SRCB:.cc=.d)
 OBJS := $(SRCB:.cc=.o)
@@ -38,7 +52,7 @@ include ${DEPS}
 endif
 
 clean-local:
-	-rm -f ${TGTS} *.d *.o *.om *.so *.pcm
+	-rm -f ${TGTS} *.d *.o *.om *.so *.pcm ${ROOTOUT}
 	-rm -rf main.dSYM
 	-rm -rf plotting/*.so plotting/*.d plotting/*.pcm
 
@@ -52,11 +66,11 @@ ${LIB_CMS}: ${CMS_OBJS}
 	@mkdir -p $(@D)
 	${CXX} ${CXXFLAGS} ${VEC_HOST} ${CMS_OBJS} -shared -o $@ ${LDFLAGS_HOST} ${LDFLAGS}
 
-${MAIN}: ${LIB_CMS} mkFit.o
-	${CXX} ${CXXFLAGS} ${VEC_HOST} ${LDFLAGS} mkFit.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. -lMicCore -lMicCMS -Wl,-rpath=.
+${MAIN}: ${MAIN_DEPS} mkFit.o
+	${CXX} ${CXXFLAGS} ${VEC_HOST} ${LDFLAGS} mkFit.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. ${MAIN_LIBS} -Wl,-rpath=.
 
-${WRMEMF}: WriteMemoryFile.o DictsDict.o
-	${CXX} ${CXXFLAGS} ${LDFLAGS} $^ -o $@ ${LDFLAGS_HOST} -ltbb -L.. -lMicCore -Wl,-rpath=.
+${WRMEMF}: ${MAIN_DEPS} WriteMemoryFile.o WriteMemFileDict.o
+	${CXX} ${CXXFLAGS} ${LDFLAGS} WriteMemoryFile.o WriteMemFileDict.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. ${MAIN_LIBS} -Wl,-rpath=.
 
 ${OBJS}: %.o: %.cc %.d
 	${CXX} ${CPPFLAGS} ${CXXFLAGS} ${VEC_HOST} -c -o $@ $<
@@ -69,6 +83,7 @@ echo:
 	@echo SRCS = ${SRCS}
 	@echo DEPS = ${DEPS}
 	@echo OBJS = ${OBJS}
+	@echo MAIN_LIBS = ${MAIN_LIBS}
 
 echo_cc_defs:
 	${CXX} -dM -E -mavx2 - < /dev/null

@@ -219,6 +219,10 @@ autoDQM = { 'DQMMessageLogger': ['DQMMessageLoggerSeq',
                             'PostDQMOffline',
                             'dqmHarvesting'],
 
+            'standardDQMExpress': ['DQMOfflineExpress',
+                                   'PostDQMOffline',
+                                   'dqmHarvestingExpress'],
+
             'standardDQMFS': ['DQMOfflineFS',
                             'PostDQMOffline',
                             'dqmHarvesting'],
@@ -243,9 +247,13 @@ autoDQM = { 'DQMMessageLogger': ['DQMMessageLoggerSeq',
             'none': ['DQMNone',
                      'PostDQMOffline',
                      'DQMNone'],
+
+            'cosmics' : ['DQMOfflineCosmics',
+                         'PostDQMOffline',
+                         'DQMOfflineCosmics']
             }
 
-_phase2_allowed = ['trackingOnlyDQM','outerTracker', 'trackerPhase2', 'muon','hcal','hcal2','egamma','L1TMonPhase2']
+_phase2_allowed = ['beam','trackingOnlyDQM','outerTracker', 'trackerPhase2', 'muon','hcal','hcal2','egamma','L1TMonPhase2','HLTMon']
 autoDQM['phase2'] = ['','','']
 for i in [0,2]:
     autoDQM['phase2'][i] = '+'.join([autoDQM[m][i] for m in _phase2_allowed])

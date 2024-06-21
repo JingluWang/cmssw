@@ -14,6 +14,10 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
 
+namespace tt {
+  class Setup;
+}
+
 namespace trklet {
 
   constexpr unsigned int N_SECTOR = 9;  // # of phi sectors for L1TK processing
@@ -54,13 +58,18 @@ namespace trklet {
     Settings() {
       //Comment out to run tracklet-only algorithm
 #ifdef CMSSW_GIT_HASH
+#ifndef CMS_DICT_IMPL  // Don't print message if genreflex being run.
 #ifndef USEHYBRID
 #pragma message "USEHYBRID is undefined, so Hybrid L1 tracking disabled."
+#endif
 #endif
 #endif
     }
 
     ~Settings() = default;
+
+    void passSetup(const tt::Setup* setup) { setup_ = setup; }
+    const tt::Setup* setup() const { return setup_; }
 
     // processing & memory modules, wiring, etc.
     std::string const& fitPatternFile() const { return fitPatternFile_; }
@@ -168,6 +177,9 @@ namespace trklet {
     double zmax(unsigned int iDisk) const { return zmean(iDisk) + dzmax(); }
     double zmin(unsigned int iDisk) const { return zmean(iDisk) - dzmax(); }
 
+    double zmindisk(unsigned int iDisk) const { return zmean(iDisk) - zsepdisk_ / 2; }
+    double zmaxdisk(unsigned int iDisk) const { return zmean(iDisk) + zsepdisk_ / 2; }
+
     double rDSSinner(unsigned int iBin) const {
       return rDSSinner_mod_[iBin / 2] + halfstrip_ * ((iBin % 2 == 0) ? -1 : 1);
     }
@@ -259,6 +271,8 @@ namespace trklet {
     void setCombined(bool combined) { combined_ = combined; }
     bool reduced() const { return reduced_; }
     void setReduced(bool reduced) { reduced_ = reduced; }
+    bool inventStubs() const { return inventStubs_; }
+    void setInventStubs(bool inventStubs) { inventStubs_ = inventStubs; }
 
     double bfield() const { return bfield_; }
     void setBfield(double bfield) { bfield_ = bfield; }
@@ -271,9 +285,23 @@ namespace trklet {
     void setStripPitch_PS(double stripPitch_PS) { stripPitch_PS_ = stripPitch_PS; }
     void setStripPitch_2S(double stripPitch_2S) { stripPitch_2S_ = stripPitch_2S; }
 
+    double sensorSpacing2S() const { return sensorSpacing_2S_; }
+
     double stripLength(bool isPSmodule) const { return isPSmodule ? stripLength_PS_ : stripLength_2S_; }
     void setStripLength_PS(double stripLength_PS) { stripLength_PS_ = stripLength_PS; }
     void setStripLength_2S(double stripLength_2S) { stripLength_2S_ = stripLength_2S; }
+
+    //Following functions are used for duplicate removal
+    //Function which returns the value corresponding to the overlap size for the overlap rinv bins in DR
+    double rinvOverlapSize() const { return rinvOverlapSize_; }
+    //Function which returns the value corresponding to the overlap size for the overlap phi bins in DR
+    double phiOverlapSize() const { return phiOverlapSize_; }
+    //Function which returns the value corresponding to the number of tracks that are compared to all the other tracks per rinv bin
+    unsigned int numTracksComparedPerBin() const { return numTracksComparedPerBin_; }
+    //Returns the rinv bin edges you need for duplicate removal bins
+    const std::vector<double>& rinvBins() const { return rinvBins_; }
+    //Returns the phi bin edges you need for duplicate removal bins
+    const std::vector<double>& phiBins() const { return phiBins_; }
 
     std::string skimfile() const { return skimfile_; }
     void setSkimfile(std::string skimfile) { skimfile_ = skimfile; }
@@ -412,15 +440,15 @@ namespace trklet {
     //have the factor if 2
     double krprojshiftdisk() const { return 2 * kr(); }
 
-    double benddecode(int ibend, int layerdisk, bool isPSmodule) const {
+    double benddecode(unsigned int ibend, unsigned int layerdisk, bool isPSmodule) const {
       if (layerdisk >= N_LAYER && (!isPSmodule))
-        layerdisk += (N_LAYER - 1);
+        layerdisk += N_DISK;
       double bend = benddecode_[layerdisk][ibend];
       assert(bend < 99.0);
       return bend;
     }
 
-    double bendcut(int ibend, int layerdisk, bool isPSmodule) const {
+    double bendcut(unsigned int ibend, unsigned int layerdisk, bool isPSmodule) const {
       if (layerdisk >= N_LAYER && (!isPSmodule))
         layerdisk += N_DISK;
       double bendcut = bendcut_[layerdisk][ibend];
@@ -448,6 +476,23 @@ namespace trklet {
       return fact * bendcut(ibend, layerdisk, isPSmodule);
     }
 
+    bool useCalcBendCuts = true;
+
+    double bendcutTE(unsigned int seed, bool inner) const {
+      if (inner) {
+        return bendcutTE_[seed][0];
+      } else {
+        return bendcutTE_[seed][1];
+      }
+    }
+
+    double bendcutME(unsigned int layerdisk, bool isPSmodule) const {
+      if (layerdisk >= N_LAYER && (!isPSmodule))
+        layerdisk += N_DISK;
+
+      return bendcutME_[layerdisk];
+    }
+
     //layers/disks used by each seed
     std::array<std::array<int, 3>, N_SEED> seedlayers() const { return seedlayers_; }
 
@@ -458,6 +503,8 @@ namespace trklet {
     std::array<std::array<unsigned int, N_DISK>, N_SEED> projdisks() const { return projdisks_; }
 
   private:
+    const tt::Setup* setup_;
+
     std::string fitPatternFile_;
     std::string processingModulesFile_;
     std::string memoryModulesFile_;
@@ -539,6 +586,8 @@ namespace trklet {
     double zlength_{120.0};
     double rmaxdisk_{120.0};
     double rmindisk_{20.0};
+
+    double zsepdisk_{1.5};  //cm
 
     double half2SmoduleWidth_{4.57};
 
@@ -786,6 +835,34 @@ namespace trklet {
          {{2.5, 1.5, 1.5, 2.0, 2.0, 2.0, 2.0, 2.0, 99.9, 2.0, 2.0, 2.0, 2.0, 2.0, 1.5, 1.5}},          //D4 2S
          {{2.5, 1.5, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 99.9, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.5}}}};        //D5 2S
 
+    double FEbendcut = sqrt(1 / 6.0);
+
+    double bendcutTE_[N_SEED_PROMPT][2] = {{2.2 * FEbendcut, 2.5 * FEbendcut},   //L1L2
+                                           {2.0 * FEbendcut, 2.0 * FEbendcut},   //L2L3
+                                           {2.0 * FEbendcut, 2.6 * FEbendcut},   //L3L4
+                                           {2.4 * FEbendcut, 2.4 * FEbendcut},   //L5L6
+                                           {2.5 * FEbendcut, 2.2 * FEbendcut},   //D1D2 PS
+                                           {2.0 * FEbendcut, 2.0 * FEbendcut},   //D3D4 PS
+                                           {2.0 * FEbendcut, 2.4 * FEbendcut},   //L1D1 PS
+                                           {2.2 * FEbendcut, 2.2 * FEbendcut}};  //L2D1 PS
+
+    double bendcutME_[N_LAYER + 2 * N_DISK] = {2.0 * FEbendcut,   //0  L1
+                                               2.5 * FEbendcut,   //1  L2
+                                               2.0 * FEbendcut,   //2  L3
+                                               2.5 * FEbendcut,   //3  L4
+                                               2.2 * FEbendcut,   //4  L5
+                                               2.3 * FEbendcut,   //5  L6
+                                               4.0 * FEbendcut,   //6  D1 PS
+                                               3.5 * FEbendcut,   //7  D2 PS
+                                               3.5 * FEbendcut,   //8  D3 PS
+                                               3.5 * FEbendcut,   //9  D4 PS
+                                               2.7 * FEbendcut,   //10 D5 PS
+                                               3.5 * FEbendcut,   //11 D1 2S
+                                               3.4 * FEbendcut,   //12 D2 2S
+                                               3.5 * FEbendcut,   //13 D3 2S
+                                               3.7 * FEbendcut,   //14 D4 2S
+                                               3.5 * FEbendcut};  //15 D5 2S
+
     // Offset to the maximum number of steps in each processing step:
     // Set to 0 (default) means standard truncation
     // Set to large value, e.g. 10000, to disable truncation
@@ -796,25 +873,29 @@ namespace trklet {
     //Number of processing steps for one event (108=18TM*240MHz/40MHz)
 
     //IR should be set to 108 to match the FW for the summer chain, but ultimately should be at 156
-    std::unordered_map<std::string, unsigned int> maxstep_{{"IR", 156},  //IR will run at a higher clock speed to handle
-                                                                         //input links running at 25 Gbits/s
-                                                           //Set to 108 to match firmware project 240 MHz clock
+    std::unordered_map<std::string, unsigned int> maxstep_{
+        {"IR", 156},  //IR will run at a higher clock speed to handle
+                      //input links running at 25 Gbits/s
+        //Set to 108 to match firmware project 240 MHz clock
 
-                                                           {"VMR", 107},
-                                                           {"TE", 107},
-                                                           {"TC", 108},
-                                                           {"PR", 108},
-                                                           {"ME", 108},
-                                                           //NOTE: The MC is set to 108, but `mergedepth`
-                                                           //removes 3 iterations to emulate the delay
-                                                           //due to the HLS priority encoder
-                                                           {"MC", 108},
-                                                           {"TB", 108},
-                                                           {"MP", 108},
-                                                           {"TP", 108},
-                                                           {"TRE", 108}};
+        {"VMR", 107},
+        {"TE", 107},
+        {"TC", 108},
+        {"PR", 108},
+        {"ME", 108},
+        //NOTE: The MC is set to 108, but `mergedepth`
+        //removes 3 iterations to emulate the delay
+        //due to the HLS priority encoder
+        {"MC", 108},
+        {"TB", 108},
+        {"MP", 108},
+        {"TP", 108},
+        {"TRE", 108},
+        {"DR", 108}};  //Specifies how many tracks allowed per bin in DR
 
-    // If set to true this will generate debub printout in text files
+    // If set to true this creates txt files, which the ROOT macros in
+    // https://github.com/cms-L1TK/TrackPerf/tree/master/PatternReco
+    // can then use to study truncation of individual algo steps within tracklet chain.
     std::unordered_map<std::string, bool> writeMonitorData_{{"IL", false},
                                                             {"TE", false},
                                                             {"CT", false},
@@ -945,6 +1026,7 @@ namespace trklet {
     unsigned int nHelixPar_{4};  // 4 or 5 param helix fit
     bool extended_{false};       // turn on displaced tracking
     bool reduced_{false};        // use reduced (Summer Chain) config
+    bool inventStubs_{false};    // invent seeding stub coordinates based on tracklet traj
 
     // Use combined TP (TE+TC) and MP (PR+ME+MC) configuration (with prompt tracking)
     bool combined_{false};
@@ -965,6 +1047,21 @@ namespace trklet {
 
     double stripLength_PS_{0.1467};
     double stripLength_2S_{5.0250};
+
+    // The DR binning below disabled, as doesn't match latest FW.
+
+    //Following values are used for duplicate removal
+    //Only one bin currently used.
+    std::vector<double> rinvBins_{-rinvcut(), rinvcut()};
+    std::vector<double> phiBins_{0, dphisectorHG()};
+    //Overlap size for the overlap rinv bins in DR
+    double rinvOverlapSize_{0.0004};
+    //Overlap size for the overlap phi bins in DR
+    double phiOverlapSize_{M_PI / 360};
+    //The maximum number of tracks that are compared to all the other tracks per rinv bin
+    int numTracksComparedPerBin_{9999};
+
+    double sensorSpacing_2S_{0.18};
   };
 
   constexpr unsigned int N_TILTED_RINGS = 12;  // # of tilted rings per half-layer in TBPS layers

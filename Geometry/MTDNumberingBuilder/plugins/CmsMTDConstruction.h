@@ -31,8 +31,7 @@ public:
   void baseNumberFromHistory(const DDGeoHistory& gh);
 
   bool isBTLV2(FilteredView&);
-
-  bool isETLtdr(FilteredView&);
+  bool isETLpreV8(FilteredView&);
 
 protected:
   CmsMTDStringToEnum theCmsMTDStringToEnum;

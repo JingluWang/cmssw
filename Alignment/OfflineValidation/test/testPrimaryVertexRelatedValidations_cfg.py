@@ -30,10 +30,7 @@ _isMC = True
 _allFromGT = True
 _applyBows = True
 _applyExtraConditions = True
-if(options.isPhase2):
-     _theRefitter = RefitType.STANDARD # FIXME: once the sequence is cleared out    
-else: 
-     _theRefitter = RefitType.COMMON  
+_theRefitter = RefitType.COMMON # RefitType.STANDARD (other option not involving filtering)
 _theTrackCollection = 'generalTracks' # FIXME: 'ALCARECOTkAlMinBias' once a sample is available
 
 ###################################################################
@@ -121,7 +118,7 @@ process.load("RecoVertex.BeamSpotProducer.BeamSpot_cff")
 ####################################################################
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, ('auto:phase2_realistic' if options.isPhase2 else 'auto:phase1_2022_realistic'), '')
+process.GlobalTag = GlobalTag(process.GlobalTag, ('auto:phase2_realistic_T21' if options.isPhase2 else 'auto:phase1_2022_realistic'), '')
 
 if _allFromGT:
      print("############ testPVValidation_cfg.py: msg%-i: All is taken from GT")
@@ -288,7 +285,7 @@ FilteringParams = offlinePrimaryVertices.TkFilterParameters.clone(
 )
 
 ## MM 04.05.2017 (use settings as in: https://github.com/cms-sw/cmssw/pull/18330)
-from RecoVertex.PrimaryVertexProducer.TkClusParameters_cff import DA_vectParameters
+from RecoVertex.PrimaryVertexProducer.OfflinePrimaryVertices_cfi import DA_vectParameters
 DAClusterizationParams = DA_vectParameters.clone()
 
 GapClusterizationParams = cms.PSet(algorithm   = cms.string('gap'),
@@ -379,10 +376,33 @@ process.HLTFilter = triggerResultsFilter.clone(
 ###################################################################
 # The analysis module
 ###################################################################
-process.myanalysis = cms.EDAnalyzer("GeneralPurposeTrackAnalyzer",
-                                    TkTag  = cms.InputTag('FinalTrackRefitter'),
-                                    isCosmics = cms.bool(False)
-                                    )
+process.trackanalysis = cms.EDAnalyzer("GeneralPurposeTrackAnalyzer",
+                                       TkTag  = cms.InputTag('FinalTrackRefitter'),
+                                       isCosmics = cms.bool(False))
+
+process.vertexanalysis = cms.EDAnalyzer('GeneralPurposeVertexAnalyzer',
+                                        ndof = cms.int32(4),
+                                        vertexLabel = cms.InputTag('offlinePrimaryVerticesFromRefittedTrks'),
+                                        beamSpotLabel = cms.InputTag('offlineBeamSpot'),
+                                        Xpos = cms.double(0.1),
+                                        Ypos = cms.double(0),
+                                        TkSizeBin = cms.int32(100),
+                                        TkSizeMin = cms.double(499.5),
+                                        TkSizeMax = cms.double(-0.5),
+                                        DxyBin = cms.int32(100),
+                                        DxyMin = cms.double(5000),
+                                        DxyMax = cms.double(-5000),
+                                        DzBin = cms.int32(100),
+                                        DzMin = cms.double(-2000),
+                                        DzMax = cms.double(2000),
+                                        PhiBin = cms.int32(32),
+                                        PhiBin2D = cms.int32(12),
+                                        PhiMin = cms.double(-3.1415926535897931),
+                                        PhiMax = cms.double(3.1415926535897931),
+                                        EtaBin = cms.int32(26),
+                                        EtaBin2D = cms.int32(8),
+                                        EtaMin = cms.double(-2.7),
+                                        EtaMax = cms.double(2.7))
 
 ###################################################################
 # The PV resolution module
@@ -401,5 +421,6 @@ process.p2 = cms.Path(process.HLTFilter                               +
                       process.seqTrackselRefit                        +
                       process.offlinePrimaryVerticesFromRefittedTrks  +
                       process.PrimaryVertexResolution                 +
-                      process.myanalysis
+                      process.trackanalysis                           +
+                      process.vertexanalysis
                       )

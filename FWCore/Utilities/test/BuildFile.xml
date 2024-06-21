@@ -1,14 +1,10 @@
 <use name="boost"/>
 <use name="FWCore/Utilities"/>
 
-<bin file="TestHelper_t.cpp">
-  <flags TEST_RUNNER_ARGS=" /bin/bash FWCore/Utilities/test one.sh two.sh testFriendlyNames.sh testAdler32.sh"/>
-</bin>
-
-<bin file="atomic_value_ptr_t.cpp">
-</bin>
+<test name="TestHelper_t" command="${value}.sh" foreach="testFriendlyNames,testAdler32"/>
 
 <bin file="typedefs_t.cpp">
+  <flags NO_TESTRUN="1"/>
 </bin>
 
 <bin file="HRTime_t.cpp">

@@ -112,13 +112,17 @@ def customisePixelGainForRun2Input(process):
     """
     # revert the Pixel parameters to be compatible with the Run 2 conditions
     for producer in producers_by_type(process, "SiPixelClusterProducer"):
-        producer.VCaltoElectronGain      =   47
-        producer.VCaltoElectronGain_L1   =   50
-        producer.VCaltoElectronOffset    =  -60
+        producer.VCaltoElectronGain = 47
+        producer.VCaltoElectronGain_L1 = 50
+        producer.VCaltoElectronOffset = -60
         producer.VCaltoElectronOffset_L1 = -670
 
-    for producer in producers_by_type(process, "SiPixelRawToClusterCUDA"):
-        producer.isRun2 = True
+    for pluginType in ["SiPixelRawToClusterCUDA", "SiPixelRawToClusterCUDAPhase1", "SiPixelRawToClusterCUDAHIonPhase1"]:
+        for producer in producers_by_type(process, pluginType):
+            producer.VCaltoElectronGain = 47
+            producer.VCaltoElectronGain_L1 = 50
+            producer.VCaltoElectronOffset = -60
+            producer.VCaltoElectronOffset_L1 = -670
 
     return process
 
@@ -127,9 +131,10 @@ def customisePixelL1ClusterThresholdForRun2Input(process):
     for producer in producers_by_type(process, "SiPixelClusterProducer"):
         if hasattr(producer,"ClusterThreshold_L1"):
             producer.ClusterThreshold_L1 = 2000
-    for producer in producers_by_type(process, "SiPixelRawToClusterCUDA"):
-        if hasattr(producer,"clusterThreshold_layer1"):
-            producer.clusterThreshold_layer1 = 2000
+    for pluginType in ["SiPixelRawToClusterCUDA", "SiPixelRawToClusterCUDAPhase1", "SiPixelRawToClusterCUDAHIonPhase1"]:
+        for producer in producers_by_type(process, pluginType):
+            if hasattr(producer,"clusterThreshold_layer1"):
+                producer.clusterThreshold_layer1 = 2000
     for producer in producers_by_type(process, "SiPixelDigisClustersFromSoA"):
         if hasattr(producer,"clusterThreshold_layer1"):
             producer.clusterThreshold_layer1 = 2000
@@ -162,6 +167,24 @@ def customiseBeamSpotFor2018Input(process):
     onlineBeamSpotESPLabels = [prod.label_() for prod in esproducers_by_type(process, 'OnlineBeamSpotESProducer')]
     for espLabel in onlineBeamSpotESPLabels:
         delattr(process, espLabel)
+
+    # re-introduce SCAL digis, if missing
+    if not hasattr(process, 'hltScalersRawToDigi') and hasattr(process, 'HLTBeamSpot') and isinstance(process.HLTBeamSpot, cms.Sequence):
+
+        if hasattr(process, 'hltOnlineBeamSpot'):
+            process.hltOnlineBeamSpot.src = 'hltScalersRawToDigi'
+
+        if hasattr(process, 'hltPixelTrackerHVOn'):
+            process.hltPixelTrackerHVOn.DcsStatusLabel = 'hltScalersRawToDigi'
+
+        if hasattr(process, 'hltStripTrackerHVOn'):
+            process.hltStripTrackerHVOn.DcsStatusLabel = 'hltScalersRawToDigi'
+
+        process.hltScalersRawToDigi = cms.EDProducer( "ScalersRawToDigi",
+            scalersInputTag = cms.InputTag( "rawDataCollector" )
+        )
+
+        process.HLTBeamSpot.insert(0, process.hltScalersRawToDigi)
 
     return process
 
@@ -208,68 +231,90 @@ def customiseForOffline(process):
     for prod in esproducers_by_type(process, 'OnlineBeamSpotESProducer'):
         prod.timeThreshold = int(1e6)
 
-    return process
+    # For running HLT offline and relieve the strain on Frontier so it will no longer inject a
+    # transaction id which tells Frontier to add a unique "&freshkey" to many query URLs.
+    # That was intended as a feature to only be used by the Online HLT, to guarantee that fresh conditions
+    # from the database were loaded at each Lumi section
+    # Seee CMSHLT-3123 for further details
+    if hasattr(process, 'GlobalTag'):
+        # Set ReconnectEachRun and RefreshEachRun to False
+        process.GlobalTag.ReconnectEachRun = cms.untracked.bool(False)
+        process.GlobalTag.RefreshEachRun = cms.untracked.bool(False)
 
-#Customize for Tracker Traits and Enabling Phase2 for Inner Tracker Reconstruction #38761
-def customizeHLTfor38761(process):
-
-     for producer in producers_by_type(process, "SiPixelRecHitSoAFromLegacy"):
-         if hasattr(producer, "isPhase2"):
-             delattr(producer, "isPhase2")
-     for producer in producers_by_type(process, "SiPixelDigisClustersFromSoA"):
-         if hasattr(producer, "isPhase2"):
-             delattr(producer, "isPhase2")
-
-     if 'hltSiPixelRecHitsSoA' in process.__dict__:
-         process.hltSiPixelRecHitsSoA.cpu =  cms.EDAlias(hltSiPixelRecHitsFromLegacy = cms.VPSet(
-            cms.PSet(
-                type = cms.string('pixelTopologyPhase1TrackingRecHit2DCPUT')
-            ),
-            cms.PSet(
-                type = cms.string('uintAsHostProduct')
-            )))
-
-     for producer in esproducers_by_type(process, "PixelCPEFastESProducer"):
-         if hasattr(producer, "isPhase2"):
-             delattr(producer, "isPhase2")
-     for producer in esproducers_by_type(process, "PixelCPEGenericESProducer"):
-         if hasattr(producer, "Upgrade"):
-             setattr(producer,"isPhase2",getattr(producer,"Upgrade"))
-             delattr(producer, "Upgrade")
-
-     return process
-
-def customizeHLTfor40264(process):
-    for producer in producers_by_type(process, "SiPixelPhase1MonitorVertexSoA"):
-        producer._TypedParameterizable__type = "SiPixelMonitorVertexSoA"
-
-    for producer in producers_by_type(process, "SiPixelPhase1CompareVertexSoA"):
-        producer._TypedParameterizable__type = "SiPixelCompareVertexSoA"
+        if hasattr(process.GlobalTag, 'toGet'):
+            # Filter out PSet objects containing only 'record' and 'refreshTime'
+            process.GlobalTag.toGet = [
+                pset for pset in process.GlobalTag.toGet
+                if set(pset.parameterNames_()) != {'record', 'refreshTime'}
+            ]
 
     return process
 
-def customizeHLTfor40334(process):
+def checkHLTfor43774(process):
+    filt_types = ["HLTEgammaGenericFilter","HLTEgammaGenericQuadraticEtaFilter","HLTEgammaGenericQuadraticFilter","HLTElectronGenericFilter"]
+    absAbleVar = ["DEta","deta","DetaSeed","Dphi","OneOESuperMinusOneOP","OneOESeedMinusOneOP"]
+    for filt_type in filt_types:
+        for filt in filters_by_type(process, filt_type):
+            if filt.varTag.productInstanceLabel in absAbleVar:
+                if (filt.useAbs != cms.bool(True)):
+                    print('# TSG WARNING: check value of parameter "useAbs" in',filt,'(expect True but is False)!')
 
-  for producer in producers_by_type(process, 'PSMonitor'):
-    if hasattr(producer, 'FolderName'):
-      if not hasattr(producer, 'folderName'):
-        producer.folderName = producer.FolderName
-      del producer.FolderName
-
-  return process
-
-def customizeHLTfor40465(process):
-    try:
-        process.hltSiPixelRecHitsSoA.cpu.hltSiPixelRecHitsFromLegacy[0].type = 'pixelTopologyPhase1TrackingRecHitSoAHost'
-    except:
-        pass
+    return process
+    
+def customizeHLTfor44576(process):
+    """Ensure TrackerAdditionalParametersPerDetRcd ESProducer is run when needed"""
+    for esprod in esproducers_by_type(process, 'TrackerGeometricDetESModule'):
+        process.load("Geometry.TrackerGeometryBuilder.TrackerAdditionalParametersPerDet_cfi")
+        break
     return process
 
-def customizeHLTfor40443(process):
-     for producer in [producers for producers in esproducers_by_type(process, "TrackerAdditionalParametersPerDetESModule")]:
-        delattr(process, producer.label())
-     return process
-
+def customizeHLTfor45063(process):
+    """Assigns value of MuonHLTSeedMVAClassifier mva input file, scales and mean values according to the value of isFromL1"""
+    for prod in producers_by_type(process, 'MuonHLTSeedMVAClassifier'):
+        if hasattr(prod, "isFromL1"):
+            if (prod.isFromL1 == True):
+                if hasattr(prod, "mvaFileBL1"):
+                    prod.mvaFileB = prod.mvaFileBL1
+                if hasattr(prod, "mvaFileEL1"):
+                    prod.mvaFileE = prod.mvaFileEL1
+                if hasattr(prod, "mvaScaleMeanBL1"):
+                    prod.mvaScaleMeanB = prod.mvaScaleMeanBL1
+                if hasattr(prod, "mvaScaleStdBL1"):
+                    prod.mvaScaleStdB = prod.mvaScaleStdBL1
+                if hasattr(prod, "mvaScaleMeanEL1"):
+                    prod.mvaScaleMeanE = prod.mvaScaleMeanEL1
+                if hasattr(prod, "mvaScaleStdEL1"):                    
+                    prod.mvaScaleStdE = prod.mvaScaleStdEL1                
+            else:
+                if hasattr(prod, "mvaFileBL2"):
+                    prod.mvaFileB = prod.mvaFileBL2
+                if hasattr(prod, "mvaFileEL2"):
+                    prod.mvaFileE = prod.mvaFileEL2
+                if hasattr(prod, "mvaScaleMeanBL2"):
+                    prod.mvaScaleMeanB = prod.mvaScaleMeanBL2
+                if hasattr(prod, "mvaScaleStdBL2"):
+                    prod.mvaScaleStdB = prod.mvaScaleStdBL2
+                if hasattr(prod, "mvaScaleMeanEL2"):
+                    prod.mvaScaleMeanE = prod.mvaScaleMeanEL2
+                if hasattr(prod, "mvaScaleStdEL2"):
+                    prod.mvaScaleStdE = prod.mvaScaleStdEL2
+                    
+    for prod in producers_by_type(process, 'MuonHLTSeedMVAClassifier'):
+        delattr(prod,"mvaFileBL1")
+        delattr(prod,"mvaFileEL1")
+        delattr(prod,"mvaScaleMeanBL1")
+        delattr(prod,"mvaScaleStdBL1")
+        delattr(prod,"mvaScaleMeanEL1")
+        delattr(prod,"mvaScaleStdEL1")
+        delattr(prod,"mvaFileBL2")
+        delattr(prod,"mvaFileEL2")
+        delattr(prod,"mvaScaleMeanBL2")
+        delattr(prod,"mvaScaleStdBL2")
+        delattr(prod,"mvaScaleMeanEL2")
+        delattr(prod,"mvaScaleStdEL2")       
+                    
+    return process
+            
 # CMSSW version specific customizations
 def customizeHLTforCMSSW(process, menuType="GRun"):
 
@@ -278,10 +323,8 @@ def customizeHLTforCMSSW(process, menuType="GRun"):
     # add call to action function in proper order: newest last!
     # process = customiseFor12718(process)
 
-    process = customizeHLTfor38761(process)
-    process = customizeHLTfor40264(process)
-    process = customizeHLTfor40334(process)
-    process = customizeHLTfor40465(process)
-    process = customizeHLTfor40443(process)
+    process = checkHLTfor43774(process)
+    process = customizeHLTfor44576(process)
+    process = customizeHLTfor45063(process)
 
     return process

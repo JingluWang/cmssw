@@ -61,7 +61,7 @@
 class PixelBaryCentreAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
 public:
   explicit PixelBaryCentreAnalyzer(const edm::ParameterSet&);
-  ~PixelBaryCentreAnalyzer() override;
+  ~PixelBaryCentreAnalyzer() override = default;
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -81,7 +81,7 @@ private:
   void initBC();
   void initBS();
 
-  bool usePixelQuality_;
+  const bool usePixelQuality_;
   int phase_;
 
   // ----------member data ---------------------------
@@ -93,11 +93,11 @@ private:
   // labels of beamspot tags
   std::vector<std::string> bsLabels_;
 
-  edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> trackerGeometryToken_;
-  edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> trackerTopologyToken_;
-  edm::ESGetToken<SiPixelQuality, SiPixelQualityFromDbRcd> siPixelQualityToken_;
+  const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> trackerGeometryToken_;
+  const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> trackerTopologyToken_;
+  const edm::ESGetToken<SiPixelQuality, SiPixelQualityFromDbRcd> siPixelQualityToken_;
 
-  edm::ESGetToken<Alignments, GlobalPositionRcd> gprToken_;
+  const edm::ESGetToken<Alignments, GlobalPositionRcd> gprToken_;
   std::map<std::string, edm::ESGetToken<Alignments, TrackerAlignmentRcd>> tkAlignTokens_;
   std::map<std::string, edm::ESGetToken<BeamSpotObjects, BeamSpotObjectsRcd>> bsTokens_;
 
@@ -160,11 +160,6 @@ PixelBaryCentreAnalyzer::PixelBaryCentreAnalyzer(const edm::ParameterSet& iConfi
   }
 
   usesResource("TFileService");
-}
-
-PixelBaryCentreAnalyzer::~PixelBaryCentreAnalyzer() {
-  // do anything here that needs to be done at desctruction time
-  // (e.g. close files, deallocate resources etc.)
 }
 
 //
@@ -254,20 +249,20 @@ void PixelBaryCentreAnalyzer::analyze(const edm::Event& iEvent, const edm::Event
     const TrackerGeometry* tkGeo = &iSetup.getData(trackerGeometryToken_);
     const TrackerTopology* tkTopo = &iSetup.getData(trackerTopologyToken_);
 
-    if (tkGeo->isThere(GeomDetEnumerators::PixelBarrel) && tkGeo->isThere(GeomDetEnumerators::PixelEndcap))
+    if (tkGeo->isThere(GeomDetEnumerators::PixelBarrel) && tkGeo->isThere(GeomDetEnumerators::PixelEndcap)) {
       phase_ = 0;
-    else if (tkGeo->isThere(GeomDetEnumerators::P1PXB) && tkGeo->isThere(GeomDetEnumerators::P1PXEC))
+    } else if (tkGeo->isThere(GeomDetEnumerators::P1PXB) && tkGeo->isThere(GeomDetEnumerators::P1PXEC)) {
       phase_ = 1;
+    }
 
     // pixel quality
     const SiPixelQuality* badPixelInfo = &iSetup.getData(siPixelQualityToken_);
 
     // Tracker global position
-    const Alignments* globalAlignments = &iSetup.getData(gprToken_);
-    std::unique_ptr<const Alignments> globalPositions = std::make_unique<Alignments>(*globalAlignments);
-    const AlignTransform& globalCoordinates = align::DetectorGlobalPosition(*globalPositions, DetId(DetId::Tracker));
-    GlobalVector globalTkPosition(
-        globalCoordinates.translation().x(), globalCoordinates.translation().y(), globalCoordinates.translation().z());
+    const AlignTransform& glbCoord = align::DetectorGlobalPosition(iSetup.getData(gprToken_), DetId(DetId::Tracker));
+
+    // Convert AlignTransform::Translation to GlobalVector using the appropriate constructor
+    GlobalVector globalTkPosition(glbCoord.translation().x(), glbCoord.translation().y(), glbCoord.translation().z());
 
     // loop over bclabels
     for (const auto& label : bcLabels_) {
@@ -378,10 +373,8 @@ void PixelBaryCentreAnalyzer::analyze(const edm::Event& iEvent, const edm::Event
       GlobalVector BPIX_NonFlipped(0.0, 0.0, 0.0);
 
       // loop over layers
-      for (std::map<int, std::map<int, GlobalVector>>::iterator il = barycentre_bpix.begin();
-           il != barycentre_bpix.end();
-           ++il) {
-        int layer = il->first;
+      for (const auto& il : barycentre_bpix) {
+        int layer = il.first;
 
         int nmodulesLayer = 0;
         int nmodulesLayer_Flipped = 0;
@@ -392,8 +385,8 @@ void PixelBaryCentreAnalyzer::analyze(const edm::Event& iEvent, const edm::Event
 
         // loop over ladder
         std::map<int, GlobalVector> barycentreLayer = barycentre_bpix[layer];
-        for (std::map<int, GlobalVector>::iterator it = barycentreLayer.begin(); it != barycentreLayer.end(); ++it) {
-          int ladder = it->first;
+        for (const auto& it : barycentreLayer) {
+          int ladder = it.first;
           //BPIXLayerLadder_[layer][ladder] = (1.0/nmodules[layer][ladder])*barycentreLayer[ladder] + globalTkPosition;
 
           nmodulesLayer += nmodules_bpix[layer][ladder];
@@ -405,19 +398,19 @@ void PixelBaryCentreAnalyzer::analyze(const edm::Event& iEvent, const edm::Event
           if (phase_ == 1) {
             if (layer != 4) {  // layer 1-3
 
-              if (ladder % 2 != 0) {  // odd ladder = inner = flipped
-                nmodulesLayer_Flipped += nmodules_bpix[layer][ladder];
-                BPIXLayer_Flipped += barycentreLayer[ladder];
-              } else {
+              if (ladder % 2 != 0) {  // odd ladder = outer ladder = unflipped
                 nmodulesLayer_NonFlipped += nmodules_bpix[layer][ladder];
                 BPIXLayer_NonFlipped += barycentreLayer[ladder];
+              } else {  // even ladder = inner ladder = flipped
+                nmodulesLayer_Flipped += nmodules_bpix[layer][ladder];
+                BPIXLayer_Flipped += barycentreLayer[ladder];
               }
             } else {  // layer-4
 
-              if (ladder % 2 == 0) {  // even ladder = inner = flipped
+              if (ladder % 2 != 0) {  // odd ladder = inner = flipped
                 nmodulesLayer_Flipped += nmodules_bpix[layer][ladder];
                 BPIXLayer_Flipped += barycentreLayer[ladder];
-              } else {  // odd ladder = outer = non-flipped
+              } else {  //even ladder = outer ladder  = unflipped
                 nmodulesLayer_NonFlipped += nmodules_bpix[layer][ladder];
                 BPIXLayer_NonFlipped += barycentreLayer[ladder];
               }
@@ -501,27 +494,25 @@ void PixelBaryCentreAnalyzer::analyze(const edm::Event& iEvent, const edm::Event
       GlobalVector FPIX_plus(0.0, 0.0, 0.0);
       GlobalVector FPIX_minus(0.0, 0.0, 0.0);
       // loop over disks
-      for (std::map<int, std::map<int, GlobalVector>>::iterator id = barycentre_fpix.begin();
-           id != barycentre_fpix.end();
-           ++id) {
-        int disk = id->first;
+
+      for (const auto& id : barycentre_fpix) {
+        int disk = id.first;
 
         int nmodulesDisk = 0;
         GlobalVector FPIXDisk(0.0, 0.0, 0.0);
 
-        std::map<int, GlobalVector> baryCentreDisk = id->second;
-        for (std::map<int, GlobalVector>::iterator ir = baryCentreDisk.begin(); ir != baryCentreDisk.end();
-             ++ir) {  // loop over rings
-          int ring = ir->first;
+        std::map<int, GlobalVector> baryCentreDisk = id.second;
+        for (const auto& ir : baryCentreDisk) {
+          int ring = ir.first;
           nmodulesDisk += nmodules_fpix[disk][ring];
-          FPIXDisk += ir->second;
+          FPIXDisk += ir.second;
           if (disk > 0) {
             nmodules_FPIX_plus += nmodules_fpix[disk][ring];
-            FPIX_plus += ir->second;
+            FPIX_plus += ir.second;
           }
           if (disk < 0) {
             nmodules_FPIX_minus += nmodules_fpix[disk][ring];
-            FPIX_minus += ir->second;
+            FPIX_minus += ir.second;
           }
 
         }  // loop over rings
@@ -651,11 +642,12 @@ void PixelBaryCentreAnalyzer::endJob() {
 
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void PixelBaryCentreAnalyzer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
-  //The following says we do not know what parameters are allowed so do no validation
-  // Please change this to state exactly what you do use, even if it is no parameters
   edm::ParameterSetDescription desc;
-  desc.setUnknown();
-  descriptions.addDefault(desc);
+  desc.setComment("Validates alignment payloads by providing the position of the pixel barycenter positions");
+  desc.addUntracked<bool>("usePixelQuality", false);
+  desc.addUntracked<std::vector<std::string>>("tkAlignLabels", {});
+  desc.addUntracked<std::vector<std::string>>("beamSpotLabels", {});
+  descriptions.addWithDefaultLabel(desc);
 }
 
 //define this as a plug-in

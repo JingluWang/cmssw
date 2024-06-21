@@ -7,8 +7,15 @@
 # the git CI runs on to check new code.
 #
 # Whenever the L1 tracking group switches to a new default
-# MC dataset, this skim should be run on ttbar+0PU MC, 
-# and the skimmed dataset placed in
+# MC dataset, this skim should be run on ttbar+0PU MC.
+# It should be copied somewhere like /eos/user/t/tomalin/
+# using cp on lxplus. And a link created to it from 
+# somewhere like 
+# https://cernbox.cern.ch/index.php/apps/files/?dir=/& .
+# N.B. The "quicklink" this gives is buggy. Take the encoded 
+# string from it and insert it into something like:
+#https://cernbox.cern.ch/remote.php/dav/public-files/4wMLEX986bdIs8U/skimmedForCI_14_0_0.root
+# The link to the skimmed dataset should be referred to in
 # https://gitlab.cern.ch/cms-l1tk/cmssw_CI .
 #-----------------------------------------------------------
 
@@ -31,9 +38,9 @@ process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.EventContent.EventContent_cff')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 
-# D49 geometry (T15 tracker)
-process.load('Configuration.Geometry.GeometryExtended2026D76Reco_cff')
-process.load('Configuration.Geometry.GeometryExtended2026D76_cff')
+# D88 geometry (T24 tracker)
+process.load('Configuration.Geometry.GeometryExtended2026D98Reco_cff')
+process.load('Configuration.Geometry.GeometryExtended2026D98_cff')
 
 process.load('Configuration.StandardSequences.EndOfProcess_cff')
 
@@ -46,7 +53,7 @@ process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(1000))
 from MCsamples.Scripts.getCMSdata_cfi import *
 
 # Read data from card files (defines getCMSdataFromCards()):
-from MCsamples.RelVal_1130_D76.PU0_TTbar_14TeV_cfi import *
+from MCsamples.RelVal_1400_D98.PU0_TTbar_14TeV_cfi import *
 inputMC = getCMSdataFromCards()
 
 process.source = cms.Source("PoolSource", fileNames = cms.untracked.vstring(*inputMC))
@@ -67,6 +74,10 @@ process.output.outputCommands.append('keep  *_*_*StubAccepted*_*')
 process.output.outputCommands.append('keep  *_*_*ClusterAccepted*_*')
 process.output.outputCommands.append('keep  *_*_*MergedTrackTruth*_*')
 process.output.outputCommands.append('keep  *_genParticles_*_*')
+
+# Add this if you need to rereconstruct the stubs.
+#process.output.outputCommands.append('keep  Phase2TrackerDigi*_mix_Tracker_*')
+#process.output.outputCommands.append('keep  PixelDigiSimLinked*_simSiPixelDigis_Tracker_*')
 
 process.pd = cms.EndPath(process.output)
 

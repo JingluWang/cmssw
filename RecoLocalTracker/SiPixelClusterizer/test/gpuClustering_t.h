@@ -16,11 +16,13 @@
 #include "HeterogeneousCore/CUDAUtilities/interface/requireDevices.h"
 #endif  // __CUDACC__
 
-#include "RecoLocalTracker/SiPixelClusterizer/plugins/gpuClustering.h"
-#include "RecoLocalTracker/SiPixelClusterizer/plugins/gpuClusterChargeCut.h"
-#include "RecoLocalTracker/SiPixelClusterizer/plugins/SiPixelClusterThresholds.h"
-
+#include "CUDADataFormats/SiPixelCluster/interface/gpuClusteringConstants.h"
 #include "Geometry/CommonTopologies/interface/SimplePixelTopology.h"
+#include "RecoLocalTracker/SiPixelClusterizer/interface/SiPixelClusterThresholds.h"
+
+// local includes, for testing only
+#include "RecoLocalTracker/SiPixelClusterizer/plugins/gpuClusterChargeCut.h"
+#include "RecoLocalTracker/SiPixelClusterizer/plugins/gpuClustering.h"
 
 int main(void) {
 #ifdef __CUDACC__
@@ -31,7 +33,8 @@ int main(void) {
   using pixelTopology::Phase1;
 
   constexpr int numElements = 256 * maxNumModules;
-  constexpr SiPixelClusterThresholds clusterThresholds(kSiPixelClusterThresholdsDefaultPhase1);
+  const SiPixelClusterThresholds clusterThresholds(
+      clusterThresholdLayerOne, clusterThresholdOtherLayers, 0.f, 0.f, 0.f, 0.f);
 
   // these in reality are already on GPU
   auto h_raw = std::make_unique<uint32_t[]>(numElements);

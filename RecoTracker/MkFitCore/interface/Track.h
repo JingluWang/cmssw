@@ -5,10 +5,12 @@
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
 #include "RecoTracker/MkFitCore/interface/FunctionTypes.h"
 #include "RecoTracker/MkFitCore/interface/Hit.h"
+#include "RecoTracker/MkFitCore/interface/IdxChi2List.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
 #include <vector>
 #include <map>
+#include <limits>
 
 namespace mkfit {
 
@@ -28,21 +30,6 @@ namespace mkfit {
                              const float hit2_y) {
     return ((hit2_y - hit0_y) * (hit2_x - hit1_x) > (hit2_y - hit1_y) * (hit2_x - hit0_x) ? 1 : -1);
   }
-
-  struct IdxChi2List {
-  public:
-    int trkIdx;           // candidate index
-    int hitIdx;           // hit index
-    unsigned int module;  // module id
-    int nhits;            // number of hits (used for sorting)
-    int ntailholes;       // number of holes at the end of the track (used for sorting)
-    int noverlaps;        // number of overlaps (used for sorting)
-    int nholes;           // number of holes (used for sorting)
-    float pt;             // pt (used for sorting)
-    float chi2;           // total chi2 (used for sorting)
-    float chi2_hit;       // chi2 of the added hit
-    float score;          // score used for candidate ranking
-  };
 
   //==============================================================================
   // TrackState
@@ -192,10 +179,19 @@ namespace mkfit {
     void setLabel(int lbl) { label_ = lbl; }
 
     bool hasSillyValues(bool dump, bool fix, const char* pref = "");
-
     bool hasNanNSillyValues() const;
 
+    // ------------------------------------------------------------------------
+
     float d0BeamSpot(const float x_bs, const float y_bs, bool linearize = false) const;
+
+    // used for swimming cmssw rec tracks to mkFit position
+    float swimPhiToR(const float x, const float y) const;
+
+    bool canReachRadius(float R) const;
+    float maxReachRadius() const;
+    float zAtR(float R, float* r_reached = nullptr) const;
+    float rAtZ(float Z) const;
 
     // ------------------------------------------------------------------------
 
@@ -354,8 +350,7 @@ namespace mkfit {
   // TrackCand
   //==============================================================================
 
-  // TrackCand depends on stuff in mkFit/HitStructures, CombCand in particular,
-  // so it is declared / implemented there.
+  // TrackCand defined in TrackStructures.h along with CombCandidate.
 
   // class TrackCand : public TrackBase { ... };
 
@@ -384,17 +379,7 @@ namespace mkfit {
     Track(int charge, const SVector3& position, const SVector3& momentum, const SMatrixSym66& errors, float chi2)
         : TrackBase(charge, position, momentum, errors, chi2) {}
 
-    Track(const Track& t) : TrackBase(t), hitsOnTrk_(t.hitsOnTrk_) {}
-
-    // used for swimming cmssw rec tracks to mkFit position
-    float swimPhiToR(const float x, const float y) const;
-
-    bool canReachRadius(float R) const;
-    float maxReachRadius() const;
-    float zAtR(float R, float* r_reached = nullptr) const;
-    float rAtZ(float Z) const;
-
-    //this function is very inefficient, use only for debug and validation!
+    // This function is very inefficient, use only for debug and validation!
     HitVec hitsVector(const std::vector<HitVec>& globalHitVec) const {
       HitVec hitsVec;
       for (int ihit = 0; ihit < Config::nMaxTrkHits; ++ihit) {
@@ -416,6 +401,15 @@ namespace mkfit {
         } else {
           mcHitIDs.push_back(hot.index);
         }
+      }
+    }
+
+    int mcHitIDofFirstHit(const std::vector<HitVec>& globalHitVec, const MCHitInfoVec& globalMCHitInfo) const {
+      const HitOnTrack& hot = hitsOnTrk_[0];
+      if ((hot.index >= 0) && (static_cast<size_t>(hot.index) < globalHitVec[hot.layer].size())) {
+        return globalHitVec[hot.layer][hot.index].mcTrackID(globalMCHitInfo);
+      } else {
+        return hot.index;
       }
     }
 
@@ -601,7 +595,7 @@ namespace mkfit {
   }
 
   inline float getScoreWorstPossible() {
-    return -1e16;  // somewhat arbitrary value, used for handling of best short track during finding (will try to take it out)
+    return -std::numeric_limits<float>::max();  // used for handling of best short track during finding
   }
 
   inline float getScoreCand(const track_score_func& score_func,
@@ -656,8 +650,8 @@ namespace mkfit {
   }
 
   void print(const TrackState& s);
-  void print(std::string label, int itrack, const Track& trk, bool print_hits = false);
-  void print(std::string label, const TrackState& s);
+  void print(std::string pfx, int itrack, const Track& trk, bool print_hits = false);
+  void print(std::string pfx, const TrackState& s);
 
 }  // end namespace mkfit
 #endif

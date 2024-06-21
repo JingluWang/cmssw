@@ -8,8 +8,9 @@ globalTag = {
   'HIon' : 'auto:run3_mc_HIon',
   'PIon' : 'auto:run3_mc_PIon',
   'PRef' : 'auto:run3_mc_PRef',
+  'Special' : 'auto:run3_mc_GRun',    # same as GRun
   'data' : 'auto:run3_hlt_relval',
-  '2022v15' : 'auto:run3_mc_2022v15',
+  '2024v13' : 'auto:run3_mc_2024v13',
 }
 
 

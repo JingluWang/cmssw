@@ -55,7 +55,15 @@ void FWCaloClusterProxyBuilder::build(const FWEventItem *iItem, TEveElementList 
     timeUpperBound = std::max(item()->getConfig()->value<double>("TimeLowerBound(ns)"),
                               item()->getConfig()->value<double>("TimeUpperBound(ns)"));
   } else {
-    std::cerr << "Warning: couldn't locate 'timeLayerCluster' ValueMap in root file." << std::endl;
+    iItem->getEvent()->getByLabel(edm::InputTag("hgcalMergeLayerClusters", "timeLayerCluster"), TimeValueMapHandle);
+    std::cerr << __FILE__ << ":" << __LINE__
+              << " couldn't locate 'hgcalLayerClusters:timeLayerCluster' ValueMap in input file. Trying to access "
+                 "'hgcalMergeLayerClusters:timeLayerClusters' ValueMap"
+              << std::endl;
+    if (!TimeValueMapHandle.isValid()) {
+      std::cerr << __FILE__ << ":" << __LINE__
+                << " couldn't locate 'hgcalMergeLayerClusters:timeLayerCluster' ValueMap in input file." << std::endl;
+    }
   }
 
   layer = item()->getConfig()->value<long>("Layer");
@@ -106,13 +114,14 @@ void FWCaloClusterProxyBuilder::build(const reco::CaloCluster &iData,
       continue;
 
     // HGCal
-    if (iData.algo() == 8 || (type >= 8 && type <= 10)) {
+    if (iData.algo() == reco::CaloCluster::hgcal_em || iData.algo() == reco::CaloCluster::hgcal_had ||
+        iData.algo() == reco::CaloCluster::hgcal_scintillator || (type >= 8 && type <= 10)) {
       if (heatmap && hitmap->find(it->first) == hitmap->end())
         continue;
 
       const bool z = (it->first >> 25) & 0x1;
 
-      // discard everything thats not at the side that we are intersted in
+      // discard everything thats not at the side that we are interested in
       if (((z_plus & z_minus) != 1) && (((z_plus | z_minus) == 0) || !(z == z_minus || z == !z_plus)))
         continue;
 

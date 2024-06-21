@@ -68,6 +68,7 @@ public:
     PixelPhase1Barrel = 101,
     PixelPhase1EndCap = 102,
     PixelPhase1Disk = 117,
+    ITPhase2Combined = 180,
     OTPhase2EndCap = 204,
     OTPhase2Barrel = 205,
     OTPhase2Layer = 208,
@@ -134,6 +135,12 @@ public:
   double pixROCCols() const { return pixROCCols_; }
   double pixROCx() const { return pixROCx_; }
   double pixROCy() const { return pixROCy_; }
+  int bigPixelsx() const { return bigPixelsx_; }
+  int bigPixelsy() const { return bigPixelsy_; }
+  float bigPixelsPitchx() const { return bigPixelsPitchx_; }
+  float bigPixelsPitchy() const { return bigPixelsPitchy_; }
+  bool isFirstSensor() const { return isFirstSensor_; }
+  bool isSecondSensor() const { return isSecondSensor_; }
   // Only return meaningful results for Outer Trackers.
   bool stereo() const { return stereo_; }
   bool isLowerSensor() const { return isLowerSensor_; }
@@ -192,6 +199,12 @@ private:
   double pixROCCols_ = 0.;
   double pixROCx_ = 0.;
   double pixROCy_ = 0.;
+  int bigPixelsx_ = 0;
+  int bigPixelsy_ = 0;
+  float bigPixelsPitchx_ = 0.;
+  float bigPixelsPitchy_ = 0.;
+  bool isFirstSensor_ = false;
+  bool isSecondSensor_ = false;
   bool stereo_ = false;
   bool isLowerSensor_ = false;
   bool isUpperSensor_ = false;

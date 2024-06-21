@@ -83,6 +83,7 @@ private:
   void plotProfile(const G4Step* step, const G4ThreeVector& pos, double edep, double time, int id);
   void plotHF(const G4ThreeVector& pos, bool emType);
   void modifyDepth(HcalNumberingFromDDD::HcalID& id);
+  void printVolume(const G4VTouchable* touch) const;
 
   std::unique_ptr<HcalNumberingFromDDD> numberingFromDDD;
   std::unique_ptr<HcalNumberingScheme> numberingScheme;
@@ -113,6 +114,7 @@ private:
   double deliveredLumi;
   double weight_;
   int depth_;
+  bool dd4hep_;
   std::vector<double> gpar;
   std::vector<int> hfLevels;
   std::vector<std::string> hfNames;

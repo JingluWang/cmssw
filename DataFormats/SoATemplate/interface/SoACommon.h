@@ -16,7 +16,7 @@
 #include "FWCore/Utilities/interface/typedefs.h"
 
 // CUDA attributes
-#ifdef __CUDACC__
+#if defined(__CUDACC__) || defined(__HIPCC__)
 #define SOA_HOST_ONLY __host__
 #define SOA_DEVICE_ONLY __device__
 #define SOA_HOST_DEVICE __host__ __device__
@@ -35,6 +35,12 @@
     printf("%s\n", (A));          \
     __trap();                     \
   }
+#elif defined(__HIPCC__) && defined(__HIP_DEVICE_COMPILE__)
+#define SOA_THROW_OUT_OF_RANGE(A) \
+  {                               \
+    printf("%s\n", (A));          \
+    abort();                      \
+  }
 #else
 #define SOA_THROW_OUT_OF_RANGE(A) \
   { throw std::out_of_range(A); }
@@ -46,6 +52,8 @@
 #define _VALUE_TYPE_EIGEN_COLUMN 2
 
 /* The size type need to be "hardcoded" in the template parameters for classes serialized by ROOT */
+/* In practice, using a typedef as a template parameter to the Layout or its ViewTemplateFreeParams member
+ * declaration fails ROOT dictionary generation.  */
 #define CMS_SOA_BYTE_SIZE_TYPE std::size_t
 
 namespace cms::soa {
@@ -64,13 +72,13 @@ namespace cms::soa {
   namespace RestrictQualify {
     constexpr bool enabled = true;
     constexpr bool disabled = false;
-    constexpr bool Default = disabled;
+    constexpr bool Default = enabled;
   }  // namespace RestrictQualify
 
   namespace RangeChecking {
     constexpr bool enabled = true;
     constexpr bool disabled = false;
-    constexpr bool Default = disabled;
+    constexpr bool Default = enabled;
   }  // namespace RangeChecking
 
   template <typename T, bool RESTRICT_QUALIFY>
@@ -126,6 +134,8 @@ namespace cms::soa {
       return reinterpret_cast<intptr_t>(addr) % alignment;
     }
 
+    TupleOrPointerType tupleOrPointer() { return addr_; }
+
   public:
     // scalar or column
     ValueType const* addr_ = nullptr;
@@ -159,6 +169,8 @@ namespace cms::soa {
       const auto& [addr, stride] = tuple;
       return reinterpret_cast<intptr_t>(addr) % alignment;
     }
+
+    TupleOrPointerType tupleOrPointer() { return {addr_, stride_}; }
 
   public:
     // address and stride
@@ -195,6 +207,8 @@ namespace cms::soa {
       return reinterpret_cast<intptr_t>(addr) % alignment;
     }
 
+    TupleOrPointerType tupleOrPointer() { return addr_; }
+
   public:
     // scalar or column
     ValueType* addr_ = nullptr;
@@ -227,6 +241,8 @@ namespace cms::soa {
       const auto& [addr, stride] = tuple;
       return reinterpret_cast<intptr_t>(addr) % alignment;
     }
+
+    TupleOrPointerType tupleOrPointer() { return {addr_, stride_}; }
 
   public:
     // address and stride
@@ -293,7 +309,7 @@ namespace cms::soa {
 
     SOA_HOST_DEVICE SOA_INLINE RefToConst operator()() const {
       // PtrToConst type will add the restrict qualifyer if needed
-      PtrToConst col = col_();
+      PtrToConst col = col_;
       return col[idx_];
     }
 

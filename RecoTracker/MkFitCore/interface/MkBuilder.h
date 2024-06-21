@@ -27,7 +27,7 @@ namespace mkfit {
 
   class MkBuilder {
   public:
-    using insert_seed_foo = void(const Track &, int, int);
+    using insert_seed_foo = void(const Track &, int, int, int);
 
     typedef std::vector<std::pair<int, int>> CandIdx_t;
 
@@ -38,6 +38,7 @@ namespace mkfit {
 
     static std::unique_ptr<MkBuilder> make_builder(bool silent = true);
     static void populate();
+    static void clear();
 
     int total_cands() const;
     std::pair<int, int> max_hits_layer(const EventOfHits &eoh) const;
@@ -51,7 +52,7 @@ namespace mkfit {
     void import_seeds(const TrackVec &in_seeds, const bool seeds_sorted, std::function<insert_seed_foo> insert_seed);
 
     // filter for rearranging cands that will / will not do backward search.
-    int filter_comb_cands(filter_candidates_func filter);
+    int filter_comb_cands(filter_candidates_func filter, bool attempt_all_cands);
 
     void find_min_max_hots_size();
 
@@ -69,6 +70,8 @@ namespace mkfit {
     // MIMI hack to export tracks for BH
     const TrackVec &ref_tracks() const { return m_tracks; }
     TrackVec &ref_tracks_nc() { return m_tracks; }
+
+    const EventOfCombCandidates &ref_eocc() const { return m_event_of_comb_cands; }
 
     // --------
 

@@ -71,7 +71,6 @@
 #include "Geometry/CommonTopologies/interface/PixelGeomDetType.h"
 #include "Geometry/TrackerGeometryBuilder/interface/PixelTopologyBuilder.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-#include "Geometry/TrackerGeometryBuilder/interface/RectangularPixelTopology.h"
 #include "Geometry/CommonDetUnit/interface/GeomDetType.h"
 #include "Geometry/CommonDetUnit/interface/GeomDet.h"
 //
@@ -87,7 +86,9 @@
 #include "L1Trigger/TrackFindingTracklet/interface/Tracklet.h"
 #include "L1Trigger/TrackFindingTracklet/interface/Residual.h"
 #include "L1Trigger/TrackFindingTracklet/interface/Stub.h"
+#include "L1Trigger/TrackFindingTracklet/interface/StubKiller.h"
 #include "L1Trigger/TrackFindingTracklet/interface/StubStreamData.h"
+#include "L1Trigger/TrackFindingTracklet/interface/HitPatternHelper.h"
 
 ////////////////
 // PHYSICS TOOLS
@@ -99,7 +100,6 @@
 
 #include "L1Trigger/TrackTrigger/interface/StubPtConsistency.h"
 #include "L1Trigger/TrackTrigger/interface/L1TrackQuality.h"
-#include "L1Trigger/TrackTrigger/interface/HitPatternHelper.h"
 
 //////////////
 // STD HEADERS
@@ -129,12 +129,12 @@ public:
   bool operator()(const trklet::L1TStub& a, const trklet::L1TStub& b) const {
     if (a.x() != b.x())
       return (b.x() > a.x());
-    else {
-      if (a.y() != b.y())
-        return (b.y() > a.y());
-      else
-        return (a.z() > b.z());
-    }
+    else if (a.y() != b.y())
+      return (b.y() > a.y());
+    else if (a.z() != b.z())
+      return (a.z() > b.z());
+    else
+      return a.bend() > b.bend();
   }
 };
 
@@ -169,6 +169,10 @@ private:
 
   // event processor for the tracklet track finding
   trklet::TrackletEventProcessor eventProcessor;
+
+  // used to "kill" stubs from a selected area of the detector
+  StubKiller* stubKiller_;
+  int failScenario_;
 
   unsigned int nHelixPar_;
   bool extended_;
@@ -254,6 +258,8 @@ L1FPGATrackProducer::L1FPGATrackProducer(edm::ParameterSet const& iConfig)
   processingModulesFile = iConfig.getParameter<edm::FileInPath>("processingModulesFile");
   memoryModulesFile = iConfig.getParameter<edm::FileInPath>("memoryModulesFile");
   wiresFile = iConfig.getParameter<edm::FileInPath>("wiresFile");
+
+  failScenario_ = iConfig.getUntrackedParameter<int>("FailScenario", 0);
 
   extended_ = iConfig.getParameter<bool>("Extended");
   reduced_ = iConfig.getParameter<bool>("Reduced");
@@ -349,10 +355,10 @@ void L1FPGATrackProducer::beginRun(const edm::Run& run, const edm::EventSetup& i
   settings_.setBfield(mMagneticFieldStrength);
 
   setup_ = &iSetup.getData(esGetToken_);
+
+  settings_.passSetup(setup_);
+
   setupHPH_ = &iSetup.getData(esGetTokenHPH_);
-  if (trackQuality_) {
-    trackQualityModel_->beginRun(setupHPH_);
-  }
   // Tracklet pattern reco output channel info.
   channelAssignment_ = &iSetup.getData(esGetTokenChannelAssignment_);
   // initialize the tracklet event processing (this sets all the processing & memory modules, wiring, etc)
@@ -366,6 +372,9 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
                    edm::Ref<edmNew::DetSetVector<TTStub<Ref_Phase2TrackerDigi_>>, TTStub<Ref_Phase2TrackerDigi_>>,
                    L1TStubCompare>
       stubMapType;
+  typedef std::map<unsigned int,
+                   edm::Ref<edmNew::DetSetVector<TTStub<Ref_Phase2TrackerDigi_>>, TTStub<Ref_Phase2TrackerDigi_>>>
+      stubIndexMapType;
   typedef edm::Ref<edmNew::DetSetVector<TTCluster<Ref_Phase2TrackerDigi_>>, TTCluster<Ref_Phase2TrackerDigi_>>
       TTClusterRef;
 
@@ -373,6 +382,7 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
   auto L1TkTracksForOutput = std::make_unique<std::vector<TTTrack<Ref_Phase2TrackerDigi_>>>();
 
   stubMapType stubMap;
+  stubIndexMapType stubIndexMap;
 
   ////////////
   // GET BS //
@@ -393,6 +403,17 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
   // tracker topology
   const TrackerTopology* const tTopo = &iSetup.getData(esGetTokenTTopo_);
   const TrackerGeometry* const theTrackerGeom = &iSetup.getData(esGetTokenTGeom_);
+
+  // check killing stubs for detector degradation studies
+  // if failType = 0, StubKiller does not kill any modules
+  int failType = 0;
+  if (failScenario_ < 0 || failScenario_ > 9) {
+    edm::LogVerbatim("Tracklet") << "Invalid fail scenario! Ignoring input";
+  } else
+    failType = failScenario_;
+
+  stubKiller_ = new StubKiller();
+  stubKiller_->initialise(failType, tTopo, theTrackerGeom);
 
   ////////////////////////
   // GET THE PRIMITIVES //
@@ -454,6 +475,7 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
   /////////////////////////////////
 
   // Process stubs in each region and channel within that tracking region
+  unsigned int theStubIndex = 0;
   for (const int& region : handleDTC->tfpRegions()) {
     for (const int& channel : handleDTC->tfpChannels()) {
       // Get the DTC name & ID from the channel
@@ -597,25 +619,33 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
 
         const unsigned int intDetId = innerDetId.rawId();
 
-        ev.addStub(dtcname,
-                   region,
-                   layerdisk,
-                   stubwordhex,
-                   setup_->psModule(dtcId),
-                   isFlipped,
-                   tiltedBarrel,
-                   tiltedRingId,
-                   endcapRingId,
-                   intDetId,
-                   ttPos.x(),
-                   ttPos.y(),
-                   ttPos.z(),
-                   stubbend,
-                   stubRef->innerClusterPosition(),
-                   assocTPs);
+        // check killing stubs for detector degredation studies
+        const TTStub<Ref_Phase2TrackerDigi_>* theStub = &(*stubRef);
+        bool killThisStub = stubKiller_->killStub(theStub);
+        if (!killThisStub) {
+          ev.addStub(dtcname,
+                     region,
+                     layerdisk,
+                     stubwordhex,
+                     setup_->psModule(dtcId),
+                     isFlipped,
+                     tiltedBarrel,
+                     tiltedRingId,
+                     endcapRingId,
+                     intDetId,
+                     ttPos.x(),
+                     ttPos.y(),
+                     ttPos.z(),
+                     stubbend,
+                     stubRef->innerClusterPosition(),
+                     assocTPs,
+                     theStubIndex);
 
-        const trklet::L1TStub& lastStub = ev.lastStub();
-        stubMap[lastStub] = stubRef;
+          const trklet::L1TStub& lastStub = ev.lastStub();
+          stubMap[lastStub] = stubRef;
+          stubIndexMap[lastStub.uniqueIndex()] = stub.first;
+          theStubIndex++;
+        }
       }
     }
   }
@@ -629,13 +659,18 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
 
   const std::vector<trklet::Track>& tracks = eventProcessor.tracks();
 
+  // max number of projection layers
   const unsigned int maxNumProjectionLayers = channelAssignment_->maxNumProjectionLayers();
   // number of track channels
   const unsigned int numStreamsTrack = N_SECTOR * channelAssignment_->numChannelsTrack();
   // number of stub channels
   const unsigned int numStreamsStub = N_SECTOR * channelAssignment_->numChannelsStub();
+  // number of seeding layers
+  const unsigned int numSeedingLayers = channelAssignment_->numSeedingLayers();
+  // max number of stub channel per track
+  const unsigned int numStubChannel = maxNumProjectionLayers + numSeedingLayers;
   // number of stub channels if all seed types streams padded to have same number of stub channels (for coding simplicity)
-  const unsigned int numStreamsStubRaw = numStreamsTrack * maxNumProjectionLayers;
+  const unsigned int numStreamsStubRaw = numStreamsTrack * numStubChannel;
 
   // Streams formatted to allow this code to run outside CMSSW.
   vector<vector<string>> streamsTrackRaw(numStreamsTrack);
@@ -644,13 +679,9 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
   // this performs the actual tracklet event processing
   eventProcessor.event(ev, streamsTrackRaw, streamsStubRaw);
 
-  int ntracks = 0;
-
   for (const auto& track : tracks) {
     if (track.duplicate())
       continue;
-
-    ntracks++;
 
     // this is where we create the TTTrack object
     double tmp_rinv = track.rinv(settings_);
@@ -690,11 +721,14 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
       stubs.push_back(stubptr);
     }
 
+    int countStubs = 0;
     stubMapType::const_iterator it;
+    stubIndexMapType::const_iterator itIndex;
     for (const auto& itstubs : stubs) {
-      it = stubMap.find(itstubs);
-      if (it != stubMap.end()) {
-        aTrack.addStubRef(it->second);
+      itIndex = stubIndexMap.find(itstubs.uniqueIndex());
+      if (itIndex != stubIndexMap.end()) {
+        aTrack.addStubRef(itIndex->second);
+        countStubs = countStubs + 1;
       } else {
         // could not find stub in stub map
       }
@@ -704,13 +738,23 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
     aTrack.setStubPtConsistency(
         StubPtConsistency::getConsistency(aTrack, theTrackerGeom, tTopo, settings_.bfield(), settings_.nHelixPar()));
 
-    // set TTTrack word
+    // set track word before TQ MVA calculated which uses track word variables
     aTrack.setTrackWordBits();
 
     if (trackQuality_) {
       trackQualityModel_->setL1TrackQuality(aTrack);
     }
 
+    //    hph::HitPatternHelper hph(setupHPH_, tmp_hit, tmp_tanL, tmp_z0);
+    //    if (trackQuality_) {
+    //      trackQualityModel_->setBonusFeatures(hph.bonusFeatures());
+    //    }
+
+    // test track word
+    //aTrack.testTrackWordBits();
+
+    // set track word again to set MVA variable from TTTrack into track word
+    aTrack.setTrackWordBits();
     // test track word
     //aTrack.testTrackWordBits();
 
@@ -732,23 +776,23 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
       int iSeed = chanTrk % channelAssignment_->numChannelsTrack();  // seed type
       streamsTrack[chanTrk].emplace_back(bitsTrk);
 
-      const unsigned int chanStubOffsetIn = chanTrk * maxNumProjectionLayers;
+      const unsigned int chanStubOffsetIn = chanTrk * numStubChannel;
       const unsigned int chanStubOffsetOut = channelAssignment_->offsetStub(chanTrk);
       const unsigned int numProjLayers = channelAssignment_->numProjectionLayers(iSeed);
-      TTBV hitMap(0, numProjLayers);
+      TTBV hitMap(0, numProjLayers + numSeedingLayers);
       // remove padding from stub stream
-      for (unsigned int iproj = 0; iproj < maxNumProjectionLayers; iproj++) {
+      for (unsigned int iproj = 0; iproj < numStubChannel; iproj++) {
         // FW current has one (perhaps invalid) stub per layer per track.
         const StubStreamData& stubdata = streamsStubRaw[chanStubOffsetIn + iproj][itk];
         const L1TStub& stub = stubdata.stub();
-        if (stubdata.valid()) {
-          const TTStubRef ttStubRef = stubMap[stub];
-          int layerId(-1);
-          if (!channelAssignment_->layerId(stubdata.iSeed(), ttStubRef, layerId))
-            continue;
-          hitMap.set(layerId);
-          streamsStub[chanStubOffsetOut + layerId].emplace_back(ttStubRef, stubdata.dataBits());
-        }
+        if (!stubdata.valid())
+          continue;
+        const TTStubRef& ttStubRef = stubMap[stub];
+        const int seedType = stubdata.iSeed();
+        const int layerId = setup_->layerId(ttStubRef);
+        const int channelId = channelAssignment_->channelId(seedType, layerId);
+        hitMap.set(channelId);
+        streamsStub[chanStubOffsetOut + channelId].emplace_back(ttStubRef, stubdata.dataBits());
       }
       for (int layerId : hitMap.ids(false)) {  // invalid stubs
         streamsStub[chanStubOffsetOut + layerId].emplace_back(tt::FrameStub());
@@ -756,8 +800,8 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
     }
   }
 
-  iEvent.emplace(putTokenTracks_, move(streamsTrack));
-  iEvent.emplace(putTokenStubs_, move(streamsStub));
+  iEvent.emplace(putTokenTracks_, std::move(streamsTrack));
+  iEvent.emplace(putTokenStubs_, std::move(streamsStub));
 
 }  /// End of produce()
 

@@ -56,6 +56,7 @@ HLTScoutingEgammaProducer::HLTScoutingEgammaProducer(const edm::ParameterSet& iC
       DphiMap_(consumes<RecoEcalCandMap>(iConfig.getParameter<edm::InputTag>("DphiMap"))),
       MissingHitsMap_(consumes<RecoEcalCandMap>(iConfig.getParameter<edm::InputTag>("MissingHitsMap"))),
       OneOEMinusOneOPMap_(consumes<RecoEcalCandMap>(iConfig.getParameter<edm::InputTag>("OneOEMinusOneOPMap"))),
+      fBremMap_(consumes<RecoEcalCandMap>(iConfig.getParameter<edm::InputTag>("fBremMap"))),
       EcalPFClusterIsoMap_(consumes<RecoEcalCandMap>(iConfig.getParameter<edm::InputTag>("EcalPFClusterIsoMap"))),
       EleGsfTrackIsoMap_(consumes<RecoEcalCandMap>(iConfig.getParameter<edm::InputTag>("EleGsfTrackIsoMap"))),
       HcalPFClusterIsoMap_(consumes<RecoEcalCandMap>(iConfig.getParameter<edm::InputTag>("HcalPFClusterIsoMap"))),
@@ -179,6 +180,14 @@ void HLTScoutingEgammaProducer::produce(edm::StreamID sid, edm::Event& iEvent, e
     return;
   }
 
+  // Get fBrem Map
+  Handle<RecoEcalCandMap> fBremMap;
+  if (!iEvent.getByToken(fBremMap_, fBremMap)) {
+    iEvent.put(std::move(outElectrons));
+    iEvent.put(std::move(outPhotons));
+    return;
+  }
+
   // Get EcalPFClusterIsoMap
   Handle<RecoEcalCandMap> EcalPFClusterIsoMap;
   if (!iEvent.getByToken(EcalPFClusterIsoMap_, EcalPFClusterIsoMap)) {
@@ -273,25 +282,58 @@ void HLTScoutingEgammaProducer::produce(edm::StreamID sid, edm::Event& iEvent, e
         continue;
     }
 
-    float d0 = 0.0;
-    float dz = 0.0;
-    int charge = -999;
+    unsigned int const maxTrkSize = EgammaGsfTrackCollection->size();
+    std::vector<float> trkd0;
+    std::vector<float> trkdz;
+    std::vector<float> trkpt;
+    std::vector<float> trketa;
+    std::vector<float> trkphi;
+    std::vector<float> trkpMode;
+    std::vector<float> trketaMode;
+    std::vector<float> trkphiMode;
+    std::vector<float> trkqoverpModeError;
+    std::vector<float> trkchi2overndf;
+    std::vector<int> trkcharge;
+    trkd0.reserve(maxTrkSize);
+    trkdz.reserve(maxTrkSize);
+    trkpt.reserve(maxTrkSize);
+    trketa.reserve(maxTrkSize);
+    trkphi.reserve(maxTrkSize);
+    trkpMode.reserve(maxTrkSize);
+    trketaMode.reserve(maxTrkSize);
+    trkphiMode.reserve(maxTrkSize);
+    trkqoverpModeError.reserve(maxTrkSize);
+    trkchi2overndf.reserve(maxTrkSize);
+    trkcharge.reserve(maxTrkSize);
+
     for (auto& track : *EgammaGsfTrackCollection) {
       RefToBase<TrajectorySeed> seed = track.extra()->seedRef();
       reco::ElectronSeedRef elseed = seed.castTo<reco::ElectronSeedRef>();
       RefToBase<reco::CaloCluster> caloCluster = elseed->caloCluster();
       reco::SuperClusterRef scRefFromTrk = caloCluster.castTo<reco::SuperClusterRef>();
       if (scRefFromTrk == scRef) {
-        d0 = track.d0();
-        dz = track.dz();
-        charge = track.charge();
+        trkd0.push_back(track.d0());
+        trkdz.push_back(track.dz());
+        trkpt.push_back(track.pt());
+        trketa.push_back(track.eta());
+        trkphi.push_back(track.phi());
+        trkpMode.push_back(track.pMode());
+        trketaMode.push_back(track.etaMode());
+        trkphiMode.push_back(track.phiMode());
+        trkqoverpModeError.push_back(track.qoverpModeError());
+        auto const trackndof = track.ndof();
+        trkchi2overndf.push_back(((trackndof == 0) ? -1 : (track.chi2() / trackndof)));
+        trkcharge.push_back(track.charge());
       }
     }
-    if (charge == -999) {  // No associated track. Candidate is a scouting photon
+    if (trkcharge.empty()) {  // No associated track. Candidate is a scouting photon
       outPhotons->emplace_back(candidate.pt(),
                                candidate.eta(),
                                candidate.phi(),
                                candidate.mass(),
+                               scRef->rawEnergy(),
+                               scRef->preshowerEnergy(),
+                               scRef->correctedEnergyUncertainty(),
                                (*SigmaIEtaIEtaMap)[candidateRef],
                                HoE,
                                (*EcalPFClusterIsoMap)[candidateRef],
@@ -301,6 +343,8 @@ void HLTScoutingEgammaProducer::produce(edm::StreamID sid, edm::Event& iEvent, e
                                sMin,
                                sMaj,
                                seedId,
+                               scRef->clustersSize(),
+                               scRef->size(),
                                mEnergies,
                                mDetIdIds,
                                mTimes,
@@ -310,15 +354,27 @@ void HLTScoutingEgammaProducer::produce(edm::StreamID sid, edm::Event& iEvent, e
                                  candidate.eta(),
                                  candidate.phi(),
                                  candidate.mass(),
-                                 d0,
-                                 dz,
+                                 scRef->rawEnergy(),
+                                 scRef->preshowerEnergy(),
+                                 scRef->correctedEnergyUncertainty(),
+                                 trkd0,
+                                 trkdz,
+                                 trkpt,
+                                 trketa,
+                                 trkphi,
+                                 trkpMode,
+                                 trketaMode,
+                                 trkphiMode,
+                                 trkqoverpModeError,
+                                 trkchi2overndf,
                                  (*DetaMap)[candidateRef],
                                  (*DphiMap)[candidateRef],
                                  (*SigmaIEtaIEtaMap)[candidateRef],
                                  HoE,
                                  (*OneOEMinusOneOPMap)[candidateRef],
                                  (*MissingHitsMap)[candidateRef],
-                                 charge,
+                                 trkcharge,
+                                 (*fBremMap)[candidateRef],
                                  (*EcalPFClusterIsoMap)[candidateRef],
                                  (*HcalPFClusterIsoMap)[candidateRef],
                                  (*EleGsfTrackIsoMap)[candidateRef],
@@ -326,6 +382,8 @@ void HLTScoutingEgammaProducer::produce(edm::StreamID sid, edm::Event& iEvent, e
                                  sMin,
                                  sMaj,
                                  seedId,
+                                 scRef->clustersSize(),
+                                 scRef->size(),
                                  mEnergies,
                                  mDetIdIds,
                                  mTimes,
@@ -346,10 +404,11 @@ void HLTScoutingEgammaProducer::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<edm::InputTag>("SigmaIEtaIEtaMap", edm::InputTag("hltEgammaClusterShape:sigmaIEtaIEta5x5"));
   desc.add<edm::InputTag>("r9Map", edm::InputTag("hltEgammaR9ID:r95x5"));
   desc.add<edm::InputTag>("HoverEMap", edm::InputTag("hltEgammaHoverE"));
-  desc.add<edm::InputTag>("DetaMap", edm::InputTag("hltEgammaGsfTrackVars:DetaSeed"));
-  desc.add<edm::InputTag>("DphiMap", edm::InputTag("hltEgammaGsfTrackVars:Dphi"));
-  desc.add<edm::InputTag>("MissingHitsMap", edm::InputTag("hltEgammaGsfTrackVars:MissingHits"));
-  desc.add<edm::InputTag>("OneOEMinusOneOPMap", edm::InputTag("hltEgammaGsfTrackVars:OneOESuperMinusOneOP"));
+  desc.add<edm::InputTag>("DetaMap", edm::InputTag("hltEgammaGsfTrackVarsUnseeded:DetaSeed"));
+  desc.add<edm::InputTag>("DphiMap", edm::InputTag("hltEgammaGsfTrackVarsUnseeded:Dphi"));
+  desc.add<edm::InputTag>("MissingHitsMap", edm::InputTag("hltEgammaGsfTrackVarsUnseeded:MissingHits"));
+  desc.add<edm::InputTag>("OneOEMinusOneOPMap", edm::InputTag("hltEgammaGsfTrackVarsUnseeded:OneOESuperMinusOneOP"));
+  desc.add<edm::InputTag>("fBremMap", edm::InputTag("hltEgammaGsfTrackVarsUnseeded:fbrem"));
   desc.add<edm::InputTag>("EcalPFClusterIsoMap", edm::InputTag("hltEgammaEcalPFClusterIso"));
   desc.add<edm::InputTag>("EleGsfTrackIsoMap", edm::InputTag("hltEgammaEleGsfTrackIso"));
   desc.add<edm::InputTag>("HcalPFClusterIsoMap", edm::InputTag("hltEgammaHcalPFClusterIso"));

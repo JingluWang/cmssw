@@ -60,11 +60,8 @@ patDisplacedMuons = patMuons.clone(
     # Standard Muon Selectors and Jet-related observables
     # Depends on MiniIsolation, so only works in miniaod
     # Don't forget to set flags properly in miniAOD_tools.py                      
-    computeMuonMVA = False,
-    mvaTrainingFile      = "RecoMuon/MuonIdentification/data/mu_2017_BDTG.weights.xml",
-    lowPtmvaTrainingFile = "RecoMuon/MuonIdentification/data/mu_lowpt_BDTG.weights.xml",
     recomputeBasicSelectors = False,
-    mvaUseJec = False,
+    useJec = False,
     mvaDrMax = 0.4,
     mvaJetTag = "pfCombinedInclusiveSecondaryVertexV2BJetTags",
     mvaL1Corrector = "ak4PFCHSL1FastjetCorrector",
@@ -73,6 +70,7 @@ patDisplacedMuons = patMuons.clone(
 
     computeSoftMuonMVA = False,
     softMvaTrainingFile = "RecoMuon/MuonIdentification/data/TMVA-muonid-bmm4-B-25.weights.xml",
+    softMvaRun3Model = cms.string("RecoMuon/MuonIdentification/data/Run2022-20231030-1731-Event0"),
 
     # MC Info
     muonSimInfo = "displacedMuonSimClassifier", # This module does not exists but producer checks existence by itself

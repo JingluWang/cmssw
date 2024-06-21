@@ -227,7 +227,6 @@ bool DTSegmentUpdator::fit(DTSegmentCand* seg, bool allow3par, const bool fitdeb
   vector<float> sigy;
   vector<int> lfit;
   vector<double> dist;
-  int i = 0;
 
   x.reserve(8);
   y.reserve(8);
@@ -250,7 +249,6 @@ bool DTSegmentUpdator::fit(DTSegmentCand* seg, bool allow3par, const bool fitdeb
     sigy.push_back(sqrt((*iter).first->localPositionError().xx()));
     x.push_back(pos.z());
     y.push_back(pos.x());
-    i++;
   }
 
   LocalPoint pos;
@@ -521,14 +519,12 @@ void DTSegmentUpdator::rejectBadHits(DTChamberRecSegment2D* phiSeg) const {
   float Sx = 0.;
   float Sy = 0.;
   float Sx2 = 0.;
-  float Sy2 = 0.;
   float Sxy = 0.;
 
   for (size_t i = 0; i < N; ++i) {
     Sx += x.at(i);
     Sy += y.at(i);
     Sx2 += x.at(i) * x.at(i);
-    Sy2 += y.at(i) * y.at(i);
     Sxy += x.at(i) * y.at(i);
   }
 

@@ -6,9 +6,22 @@
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "HeterogeneousCore/CUDACore/interface/JobConfigurationGPURecord.h"
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
-#include "HeterogeneousCore/CUDAServices/interface/CUDAService.h"
+#include "HeterogeneousCore/CUDAServices/interface/CUDAInterface.h"
 
 #include "SimpleAlgoGPU.h"
+
+#include "CondFormats/DataRecord/interface/HcalCombinedRecordsGPU.h"
+#include "CondFormats/DataRecord/interface/HcalGainWidthsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalGainsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalLUTCorrsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalQIEDataRcd.h"
+#include "CondFormats/DataRecord/interface/HcalQIETypesRcd.h"
+#include "CondFormats/DataRecord/interface/HcalRecoParamsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalRespCorrsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalSiPMCharacteristicsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalSiPMParametersRcd.h"
+#include "CondFormats/DataRecord/interface/HcalTimeCorrsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalChannelQualityRcd.h"
 
 class HBHERecHitProducerGPU : public edm::stream::EDProducer<edm::ExternalWork> {
 public:

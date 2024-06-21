@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------------------------------------------
 // Basic example ROOT script for making tracking performance plots using the ntuples produced by L1TrackNtupleMaker.cc
 //
-// e.g. in ROOT do: .L L1TrackNtuplePlot.C++, L1TrackNtuplePlot("TTbar_PU200_hybrid")
+// e.g. in ROOT do: .L L1TrackNtuplePlot.C++, L1TrackNtuplePlot("L1TrkNtuple")
 //
 // By Louise Skinnari, June 2013
 // ----------------------------------------------------------------------------------------------------------------
@@ -75,6 +75,9 @@ void L1TrackNtuplePlot(TString type,
   gErrorIgnoreLevel = kWarning;
 
   SetPlotStyle();
+
+  cout.setf(ios::fixed);
+  cout.precision(2);
 
   // ----------------------------------------------------------------------------------------------------------------
   // define input options
@@ -162,8 +165,11 @@ void L1TrackNtuplePlot(TString type,
   vector<float>* matchtrk_d0;
   vector<float>* matchtrk_z0;
   vector<float>* matchtrk_chi2;
+  vector<float>* matchtrk_chi2_dof;
   vector<float>* matchtrk_chi2rphi;
+  vector<float>* matchtrk_chi2rphi_dof;
   vector<float>* matchtrk_chi2rz;
+  vector<float>* matchtrk_chi2rz_dof;
   vector<int>* matchtrk_nstub;
   vector<int>* matchtrk_lhits;
   vector<int>* matchtrk_dhits;
@@ -178,8 +184,11 @@ void L1TrackNtuplePlot(TString type,
   vector<float>* trk_eta;
   vector<float>* trk_phi;
   vector<float>* trk_chi2;
+  vector<float>* trk_chi2_dof;
   vector<float>* trk_chi2rphi;
+  vector<float>* trk_chi2rphi_dof;
   vector<float>* trk_chi2rz;
+  vector<float>* trk_chi2rz_dof;
   vector<int>* trk_nstub;
   vector<int>* trk_lhits;
   vector<int>* trk_dhits;
@@ -213,8 +222,11 @@ void L1TrackNtuplePlot(TString type,
   TBranch* b_matchtrk_d0;
   TBranch* b_matchtrk_z0;
   TBranch* b_matchtrk_chi2;
+  TBranch* b_matchtrk_chi2_dof;
   TBranch* b_matchtrk_chi2rphi;
+  TBranch* b_matchtrk_chi2rphi_dof;
   TBranch* b_matchtrk_chi2rz;
+  TBranch* b_matchtrk_chi2rz_dof;
   TBranch* b_matchtrk_nstub;
   TBranch* b_matchtrk_lhits;
   TBranch* b_matchtrk_dhits;
@@ -228,8 +240,11 @@ void L1TrackNtuplePlot(TString type,
   TBranch* b_trk_eta;
   TBranch* b_trk_phi;
   TBranch* b_trk_chi2;
+  TBranch* b_trk_chi2_dof;
   TBranch* b_trk_chi2rphi;
+  TBranch* b_trk_chi2rphi_dof;
   TBranch* b_trk_chi2rz;
+  TBranch* b_trk_chi2rz_dof;
   TBranch* b_trk_nstub;
   TBranch* b_trk_lhits;
   TBranch* b_trk_dhits;
@@ -263,8 +278,11 @@ void L1TrackNtuplePlot(TString type,
   matchtrk_d0 = 0;
   matchtrk_z0 = 0;
   matchtrk_chi2 = 0;
+  matchtrk_chi2_dof = 0;
   matchtrk_chi2rphi = 0;
+  matchtrk_chi2rphi_dof = 0;
   matchtrk_chi2rz = 0;
+  matchtrk_chi2rz_dof = 0;
   matchtrk_nstub = 0;
   matchtrk_lhits = 0;
   matchtrk_dhits = 0;
@@ -278,8 +296,11 @@ void L1TrackNtuplePlot(TString type,
   trk_eta = 0;
   trk_phi = 0;
   trk_chi2 = 0;
+  trk_chi2_dof = 0;
   trk_chi2rphi = 0;
+  trk_chi2rphi_dof = 0;
   trk_chi2rz = 0;
+  trk_chi2rz_dof = 0;
   trk_nstub = 0;
   trk_lhits = 0;
   trk_dhits = 0;
@@ -319,8 +340,11 @@ void L1TrackNtuplePlot(TString type,
     tree->SetBranchAddress("loosematchtrk_d0", &matchtrk_d0, &b_matchtrk_d0);
     tree->SetBranchAddress("loosematchtrk_z0", &matchtrk_z0, &b_matchtrk_z0);
     tree->SetBranchAddress("loosematchtrk_chi2", &matchtrk_chi2, &b_matchtrk_chi2);
+    tree->SetBranchAddress("loosematchtrk_chi2_dof", &matchtrk_chi2_dof, &b_matchtrk_chi2_dof);
     tree->SetBranchAddress("loosematchtrk_chi2rphi", &matchtrk_chi2rphi, &b_matchtrk_chi2rphi);
+    tree->SetBranchAddress("loosematchtrk_chi2rphi_dof", &matchtrk_chi2rphi_dof, &b_matchtrk_chi2rphi_dof);
     tree->SetBranchAddress("loosematchtrk_chi2rz", &matchtrk_chi2rz, &b_matchtrk_chi2rz);
+    tree->SetBranchAddress("loosematchtrk_chi2rz_dof", &matchtrk_chi2rz_dof, &b_matchtrk_chi2rz_dof);
     tree->SetBranchAddress("loosematchtrk_nstub", &matchtrk_nstub, &b_matchtrk_nstub);
     tree->SetBranchAddress("loosematchtrk_seed", &matchtrk_seed, &b_matchtrk_seed);
     tree->SetBranchAddress("loosematchtrk_hitpattern", &matchtrk_hitpattern, &b_matchtrk_hitpattern);
@@ -336,8 +360,11 @@ void L1TrackNtuplePlot(TString type,
     tree->SetBranchAddress("matchtrk_d0", &matchtrk_d0, &b_matchtrk_d0);
     tree->SetBranchAddress("matchtrk_z0", &matchtrk_z0, &b_matchtrk_z0);
     tree->SetBranchAddress("matchtrk_chi2", &matchtrk_chi2, &b_matchtrk_chi2);
+    tree->SetBranchAddress("matchtrk_chi2_dof", &matchtrk_chi2_dof, &b_matchtrk_chi2_dof);
     tree->SetBranchAddress("matchtrk_chi2rphi", &matchtrk_chi2rphi, &b_matchtrk_chi2rphi);
+    tree->SetBranchAddress("matchtrk_chi2rphi_dof", &matchtrk_chi2rphi_dof, &b_matchtrk_chi2rphi_dof);
     tree->SetBranchAddress("matchtrk_chi2rz", &matchtrk_chi2rz, &b_matchtrk_chi2rz);
+    tree->SetBranchAddress("matchtrk_chi2rz_dof", &matchtrk_chi2rz_dof, &b_matchtrk_chi2rz_dof);
     tree->SetBranchAddress("matchtrk_nstub", &matchtrk_nstub, &b_matchtrk_nstub);
     tree->SetBranchAddress("matchtrk_lhits", &matchtrk_lhits, &b_matchtrk_lhits);
     tree->SetBranchAddress("matchtrk_dhits", &matchtrk_dhits, &b_matchtrk_dhits);
@@ -354,8 +381,11 @@ void L1TrackNtuplePlot(TString type,
   tree->SetBranchAddress("trk_eta", &trk_eta, &b_trk_eta);
   tree->SetBranchAddress("trk_phi", &trk_phi, &b_trk_phi);
   tree->SetBranchAddress("trk_chi2", &trk_chi2, &b_trk_chi2);
+  tree->SetBranchAddress("trk_chi2_dof", &trk_chi2_dof, &b_trk_chi2_dof);
   tree->SetBranchAddress("trk_chi2rphi", &trk_chi2rphi, &b_trk_chi2rphi);
+  tree->SetBranchAddress("trk_chi2rphi_dof", &trk_chi2rphi_dof, &b_trk_chi2rphi_dof);
   tree->SetBranchAddress("trk_chi2rz", &trk_chi2rz, &b_trk_chi2rz);
+  tree->SetBranchAddress("trk_chi2rz_dof", &trk_chi2rz_dof, &b_trk_chi2rz_dof);
   tree->SetBranchAddress("trk_nstub", &trk_nstub, &b_trk_nstub);
   tree->SetBranchAddress("trk_lhits", &trk_lhits, &b_trk_lhits);
   tree->SetBranchAddress("trk_dhits", &trk_dhits, &b_trk_dhits);
@@ -994,7 +1024,6 @@ void L1TrackNtuplePlot(TString type,
   // ----------------------------------------------------------------------------------------------------------------
 
   int nevt = tree->GetEntries();
-  cout << "number of events = " << nevt << endl;
 
   // ----------------------------------------------------------------------------------------------------------------
   // event loop
@@ -1051,13 +1080,12 @@ void L1TrackNtuplePlot(TString type,
       h_trk_eta->Fill(trk_eta->at(it));
 
       // fill all trk chi2 & chi2/dof histograms, including for chi2 r-phi and chi2 r-z
-      int ndof = 2 * trk_nstub->at(it) - 4;
       float chi2 = trk_chi2->at(it);
-      float chi2dof = (float)chi2 / ndof;
+      float chi2dof = trk_chi2_dof->at(it);
       float chi2rphi = trk_chi2rphi->at(it);
-      float chi2rphidof = (float)chi2rphi / ndof;
+      float chi2rphidof = trk_chi2rphi_dof->at(it);
       float chi2rz = trk_chi2rz->at(it);
-      float chi2rzdof = (float)chi2rz / ndof;
+      float chi2rzdof = trk_chi2rz_dof->at(it);
 
       // create overflow bins by restricting range of chi2
       int chi2Overflow = 100;
@@ -1111,9 +1139,8 @@ void L1TrackNtuplePlot(TString type,
         continue;
 
       // Uncomment these cuts to see effect on rate & fake rate.
-      //int ndof = 2*trk_nstub->at(it)-4;
       //if (trk_chi2->at(it) > L1Tk_maxChi2) continue;
-      //if (trk_chi2->at(it)/ndof > L1Tk_maxChi2dof) continue;
+      //if (trk_chi2_dof->at(it) > L1Tk_maxChi2dof) continue;
       //if (trk_nstub->at(it) < L1Tk_minNstub) continue;
 
       // Tracklet & Hybrid have 9 sectors, but TMTT has 18 (with sectors 0 & 1 in nonant 0 etc).
@@ -1319,13 +1346,12 @@ void L1TrackNtuplePlot(TString type,
       // ----------------------------------------------------------------------------------------------------------------
       // fill matchtrk chi2 & chi2/dof histograms before making chi2 cut
 
-      int ndof = 2 * matchtrk_nstub->at(it) - 4;
       float chi2 = matchtrk_chi2->at(it);
-      float chi2dof = (float)chi2 / ndof;
+      float chi2dof = matchtrk_chi2_dof->at(it);
       float chi2rphi = matchtrk_chi2rphi->at(it);
-      float chi2rphidof = (float)chi2rphi / ndof;
+      float chi2rphidof = matchtrk_chi2rphi_dof->at(it);
       float chi2rz = matchtrk_chi2rz->at(it);
-      float chi2rzdof = (float)chi2rz / ndof;
+      float chi2rzdof = matchtrk_chi2rz_dof->at(it);
 
       // create overflow bins by restricting range of chi2
       int chi2Overflow = 100;
@@ -1392,7 +1418,7 @@ void L1TrackNtuplePlot(TString type,
       // cut on chi2?
       if (matchtrk_chi2->at(it) > L1Tk_maxChi2)
         continue;
-      if (matchtrk_chi2->at(it) / ndof > L1Tk_maxChi2dof)
+      if (matchtrk_chi2_dof->at(it) > L1Tk_maxChi2dof)
         continue;
 
       // use tight quality cut selection?
@@ -3609,10 +3635,18 @@ void L1TrackNtuplePlot(TString type,
     c.SaveAs(DIR + type + "_trk_pt.pdf");
   }
 
+  // Sample z0 resolution at a couple of rapidity points.
+  float etaSample1 = h2_resVsEta_z0_68->GetXaxis()->GetBinCenter(1);
+  float etaSample2 = h2_resVsEta_z0_68->GetXaxis()->GetBinCenter(0.8 * nETARANGE);
+  float z0ResSample1 = h2_resVsEta_z0_68->GetBinContent(1);
+  float z0ResSample2 = h2_resVsEta_z0_68->GetBinContent(0.8 * nETARANGE);
+
   fout->Close();
 
   // ---------------------------------------------------------------------------------------------------------
   //some printouts
+
+  cout << "number of events = " << nevt << endl;
 
   float k = (float)n_match_eta1p0;
   float N = (float)n_all_eta1p0;
@@ -3667,7 +3701,11 @@ void L1TrackNtuplePlot(TString type,
   cout << "# tracks/event (no pt cut)= " << (float)ntrk / nevt << endl;
   cout << "# tracks/event (pt > " << std::max(TP_minPt, 2.0f) << ") = " << (float)ntrk_pt2 / nevt << endl;
   cout << "# tracks/event (pt > 3.0) = " << (float)ntrk_pt3 / nevt << endl;
-  cout << "# tracks/event (pt > 10.0) = " << (float)ntrk_pt10 / nevt << endl;
+  cout << "# tracks/event (pt > 10.0) = " << (float)ntrk_pt10 / nevt << endl << endl;
+
+  // z0 resolution
+  cout << "z0 resolution = " << z0ResSample1 << "cm at |eta| = " << etaSample1 << endl;
+  cout << "z0 resolution = " << z0ResSample2 << "cm at |eta| = " << etaSample2 << endl;
 }
 
 void SetPlotStyle() {

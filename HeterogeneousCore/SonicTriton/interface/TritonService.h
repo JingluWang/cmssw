@@ -10,6 +10,7 @@
 #include <string>
 #include <functional>
 #include <utility>
+#include <atomic>
 
 #include "grpc_client.h"
 
@@ -20,6 +21,9 @@ namespace edm {
   class PathsAndConsumesOfModulesBase;
   class ProcessContext;
   class ModuleDescription;
+  namespace service {
+    class SystemBounds;
+  }
 }  // namespace edm
 
 enum class TritonServerType { Remote = 0, LocalCPU = 1, LocalGPU = 2 };
@@ -109,10 +113,12 @@ public:
   void addModel(const std::string& modelName, const std::string& path);
   Server serverInfo(const std::string& model, const std::string& preferred = "") const;
   const std::string& pid() const { return pid_; }
+  void notifyCallStatus(bool status) const;
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
+  void preallocate(edm::service::SystemBounds const&);
   void preModuleConstruction(edm::ModuleDescription const&);
   void postModuleConstruction(edm::ModuleDescription const&);
   void preModuleDestruction(edm::ModuleDescription const&);
@@ -128,12 +134,14 @@ private:
   unsigned currentModuleId_;
   bool allowAddModel_;
   bool startedFallback_;
+  mutable std::atomic<int> callFails_;
   std::string pid_;
   std::unordered_map<std::string, Model> unservedModels_;
   //this represents a many:many:many map
   std::unordered_map<std::string, Server> servers_;
   std::unordered_map<std::string, Model> models_;
   std::unordered_map<unsigned, Module> modules_;
+  int numberOfThreads_;
 };
 
 #endif

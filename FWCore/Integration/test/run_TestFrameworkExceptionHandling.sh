@@ -1,11 +1,8 @@
 #!/bin/bash
 #set -x
-LOCAL_TEST_DIR=${CMSSW_BASE}/src/FWCore/Integration/test
-LOCAL_TMP_DIR=${CMSSW_BASE}/tmp/${SCRAM_ARCH}
+LOCAL_TEST_DIR=${SCRAM_TEST_PATH}
 
 function die { echo Failure $1: status $2 ; exit $2 ; }
-
-pushd ${LOCAL_TMP_DIR}
 
 logfile=testFrameworkExceptionHandling$1.log
 echo $logfile
@@ -24,6 +21,9 @@ grep "Calling method for module ExceptionThrowingProducer/'throwException'" $log
 grep "Exception Message:" $logfile || die " - Cannot find the following string in the exception message: Exception Message: " $?
 
 grep "End Fatal Exception" $logfile || die " - Cannot find the following string in the exception message: End Fatal Exception " $?
+
+grep "ExceptionThrowingProducer PASSED" $logfile || die " - FAILED because cannot find the following string in the log file: ExceptionThrowingProducer PASSED " $?
+grep "ExceptionThrowingProducer FAILED" $logfile && die " - FAILED because found the following string in the log file: ExceptionThrowingProducer FAILED " 1
 
 if [ $1 -eq 1 ]
 then
@@ -79,7 +79,5 @@ then
     grep "Processing  stream end LuminosityBlock run: 3 luminosityBlock: 1" $logfile || die " - Cannot find the following string in the exception message: Processing  stream end LuminosityBlock run: 3 luminosityBlock: 1 " $?
     grep "ExceptionThrowingProducer::streamEndLuminosityBlock, module configured to throw on: run: 3 lumi: 1 event: 0" $logfile || die " - Cannot find the following string in the exception message: ExceptionThrowingProducer::streamEndLuminosityBlock, module configured to throw on: run: 3 lumi: 1 event: 0 " $?
 fi
-
-popd
 
 exit 0

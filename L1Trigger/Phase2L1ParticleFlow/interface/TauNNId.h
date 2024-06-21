@@ -15,6 +15,7 @@ public:
 
   void setNNVectorVar();
   float EvaluateNN();
+  float *NNVectorVar() { return NNvectorVar_.data(); }
   float compute(const l1t::PFCandidate &iSeed, l1t::PFCandidateCollection &iParts);
 
 private:
@@ -25,6 +26,6 @@ private:
   unique_ptr<float[]> fPt_;
   unique_ptr<float[]> fEta_;
   unique_ptr<float[]> fPhi_;
-  unique_ptr<float[]> fId_;
+  unique_ptr<int[]> fId_;
 };
 #endif

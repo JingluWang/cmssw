@@ -6,7 +6,7 @@ particleFlowClusterHGCal = cms.EDProducer("PFClusterProducer",
     ),
     initialClusteringStep = cms.PSet(
         algoName = cms.string('PFClusterFromHGCalTrackster'),
-        clusterSrc = cms.InputTag("hgcalLayerClusters"),
+        clusterSrc = cms.InputTag("hgcalMergeLayerClusters"),
         filterByTracksterIteration = cms.bool(True),
         filterByTracksterPID = cms.bool(False),
         filter_on_categories = cms.vint32(0, 1),
@@ -30,5 +30,6 @@ particleFlowClusterHGCal = cms.EDProducer("PFClusterProducer",
         algoName = cms.string('PassThruSeedFinder'),
         nNeighbours = cms.int32(8),
         thresholdsByDetector = cms.VPSet()
-    )
+    ),
+    usePFThresholdsFromDB = cms.bool(False)
 )

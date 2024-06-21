@@ -17,11 +17,11 @@ process.source = cms.Source("EmptySource",
                             )
 
 # process.PoolDBOutputService.DBParameters.messageLevel = 3
-import json
+import json, os
 
 def encodeJsonInString(filename):
     """This function open the json file and encodes it in a string replacing probelamtic characters"""
-    thefile = open("../data/"+filename)
+    thefile = open(os.path.join(os.path.dirname(__file__), "..", "data", filename))
     thejson = json.load(thefile)
     thefile.close()
     return json.JSONEncoder().encode(thejson).replace('"',"&quot;")
@@ -69,6 +69,10 @@ SiPixelAliRcd_prep_str = encodeJsonInString("SiPixelAliRcd_prep.json")
 SiPixelAliHGRcd_prod_str = encodeJsonInString("SiPixelAliHGRcd_prod.json")
 SiPixelAliHGRcd_prep_str = encodeJsonInString("SiPixelAliHGRcd_prep.json")
 
+#SiPixelAliHGComb
+SiPixelAliHGCombRcd_prod_str = encodeJsonInString("SiPixelAliHGCombRcd_prod.json")
+SiPixelAliHGCombRcd_prep_str = encodeJsonInString("SiPixelAliHGCombRcd_prep.json")
+
 #EcalPedestalsRcd
 EcalPedestalsRcd_prod_str = encodeJsonInString("EcalPedestal_prod.json")
 EcalPedestalsRcd_prep_str = encodeJsonInString("EcalPedestal_prep.json")
@@ -91,6 +95,12 @@ SiPixelLorentzAngleRcd_multirun_prod_str =  encodeJsonInString("SiPixelLorentzAn
 SiPixelLorentzAngleRcd_prep_str = encodeJsonInString("SiPixelLorentzAngleRcd_prep.json")
 SiPixelLorentzAngleRcd_multirun_prep_str = encodeJsonInString("SiPixelLorentzAngleRcd_multirun_prep.json")
 
+#SiPixelLorenzAngle, FPix 
+SiPixelLorentzAngleRcd_MCS_prod_str =  encodeJsonInString("SiPixelLorentzAngleRcd_MCS_prod.json")
+SiPixelLorentzAngleRcd_MCS_multirun_prod_str =  encodeJsonInString("SiPixelLorentzAngleRcd_MCS_multirun_prod.json")
+SiPixelLorentzAngleRcd_MCS_prep_str = encodeJsonInString("SiPixelLorentzAngleRcd_MCS_prep.json")
+SiPixelLorentzAngleRcd_MCS_multirun_prep_str = encodeJsonInString("SiPixelLorentzAngleRcd_MCS_multirun_prep.json")
+
 #CT-PPS alignment and timing
 CTPPSRPAlignmentCorrectionsDataRcd_prod_str =  encodeJsonInString("CTPPSRPAlignmentCorrectionsDataRcd_prod.json")
 CTPPSRPAlignmentCorrectionsDataRcd_prep_str = encodeJsonInString("CTPPSRPAlignmentCorrectionsDataRcd_prep.json")
@@ -99,6 +109,11 @@ PPSTimingCalibrationRcd_prep_str = encodeJsonInString("PPSTimingCalibrationRcd_p
 PPSTimingCalibrationRcd_Sampic_prod_str = encodeJsonInString("PPSTimingCalibrationRcd_Sampic_prod.json")
 PPSTimingCalibrationRcd_Sampic_prep_str = encodeJsonInString("PPSTimingCalibrationRcd_Sampic_prep.json")
 
+#SiStripLorenzAngle
+SiStripLorentzAngleRcd_prod_str =  encodeJsonInString("SiStripLorentzAngleRcd_prod.json")
+SiStripLorentzAngleRcd_multirun_prod_str =  encodeJsonInString("SiStripLorentzAngleRcd_multirun_prod.json")
+SiStripLorentzAngleRcd_prep_str = encodeJsonInString("SiStripLorentzAngleRcd_prep.json")
+SiStripLorentzAngleRcd_multirun_prep_str = encodeJsonInString("SiStripLorentzAngleRcd_multirun_prep.json")
 
 # given a set of .json files in the current dir, ProduceDropBoxMetadata produces a sqlite containign the payload with the prod/and/prep metadata
 process.mywriter = cms.EDAnalyzer("ProduceDropBoxMetadata",
@@ -163,6 +178,12 @@ process.mywriter = cms.EDAnalyzer("ProduceDropBoxMetadata",
                                                                prodMetaData        = cms.untracked.string(SiPixelAliHGRcd_prod_str),
                                                                prepMetaData        = cms.untracked.string(SiPixelAliHGRcd_prep_str),
                                                                ),
+                                                      cms.PSet(record              = cms.untracked.string('TrackerAlignmentHGCombinedRcd'),
+                                                               Source              = cms.untracked.string("AlcaHarvesting"),
+                                                               FileClass           = cms.untracked.string("ALCA"),
+                                                               prodMetaData        = cms.untracked.string(SiPixelAliHGCombRcd_prod_str),
+                                                               prepMetaData        = cms.untracked.string(SiPixelAliHGCombRcd_prep_str),
+                                                               ),
                                                       cms.PSet(record              = cms.untracked.string('SiStripApvGainRcdAAG'),
                                                                Source              = cms.untracked.string("AlcaHarvesting"),
                                                                FileClass           = cms.untracked.string("ALCA"),
@@ -208,7 +229,15 @@ process.mywriter = cms.EDAnalyzer("ProduceDropBoxMetadata",
                                                                prodMetaDataMultiRun = cms.untracked.string(SiPixelLorentzAngleRcd_multirun_prod_str),
                                                                prepMetaData        = cms.untracked.string(SiPixelLorentzAngleRcd_prep_str),
                                                                prepMetaDataMultiRun = cms.untracked.string(SiPixelLorentzAngleRcd_multirun_prep_str),
-                                                               ),
+                                                           ),
+                                                      cms.PSet(record              = cms.untracked.string('SiPixelLorentzAngleRcdMCS'),
+                                                               Source              = cms.untracked.string("AlcaHarvesting"),
+                                                               FileClass           = cms.untracked.string("ALCA"),
+                                                               prodMetaData        = cms.untracked.string(SiPixelLorentzAngleRcd_MCS_prod_str),
+                                                               prodMetaDataMultiRun = cms.untracked.string(SiPixelLorentzAngleRcd_MCS_multirun_prod_str),
+                                                               prepMetaData        = cms.untracked.string(SiPixelLorentzAngleRcd_MCS_prep_str),
+                                                               prepMetaDataMultiRun = cms.untracked.string(SiPixelLorentzAngleRcd_MCS_multirun_prep_str),
+                                                           ),
                                                       cms.PSet(record              = cms.untracked.string('CTPPSRPAlignmentCorrectionsDataRcd'),
                                                                Source              = cms.untracked.string("AlcaHarvesting"),
                                                                FileClass           = cms.untracked.string("ALCA"),
@@ -226,7 +255,15 @@ process.mywriter = cms.EDAnalyzer("ProduceDropBoxMetadata",
                                                                FileClass           = cms.untracked.string("ALCA"),
                                                                prodMetaData        = cms.untracked.string(PPSTimingCalibrationRcd_Sampic_prod_str),
                                                                prepMetaData        = cms.untracked.string(PPSTimingCalibrationRcd_Sampic_prep_str),
-                                                               )
+                                                               ),
+                                                      cms.PSet(record              = cms.untracked.string('SiStripLorentzAngleRcd'),
+                                                               Source              = cms.untracked.string("AlcaHarvesting"),
+                                                               FileClass           = cms.untracked.string("ALCA"),
+                                                               prodMetaData        = cms.untracked.string(SiStripLorentzAngleRcd_prod_str),
+                                                               prodMetaDataMultiRun = cms.untracked.string(SiStripLorentzAngleRcd_multirun_prod_str),
+                                                               prepMetaData        = cms.untracked.string(SiStripLorentzAngleRcd_prep_str),
+                                                               prepMetaDataMultiRun = cms.untracked.string(SiStripLorentzAngleRcd_multirun_prep_str),
+                                                               ),
                                                       ),
                                   # this boolean will read the content of whichever payload is available and print its content to stoutput
                                   # set this to false if you write out a sqlite.db translating the json's into a payload

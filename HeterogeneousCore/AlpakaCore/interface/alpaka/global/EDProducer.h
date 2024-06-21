@@ -22,7 +22,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         device::Event ev(iEvent, sentry.metadata());
         device::EventSetup const es(iSetup, ev.device());
         produce(sid, ev, es);
-        sentry.finish();
+        this->putBackend(iEvent);
+        sentry.finish(ev.wasQueueUsed());
       }
 
       virtual void produce(edm::StreamID sid, device::Event& iEvent, device::EventSetup const& iSetup) const = 0;

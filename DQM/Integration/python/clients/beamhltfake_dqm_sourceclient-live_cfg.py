@@ -6,7 +6,7 @@ import FWCore.ParameterSet.Config as cms
 BSOnlineRecordName = 'BeamSpotOnlineHLTObjectsRcd'
 BSOnlineTag = 'BeamSpotOnlineFakeHLT'
 BSOnlineJobName = 'BeamSpotOnlineFakeHLT'
-BSOnlineOmsServiceUrl = 'http://cmsoms-services.cms:9949/urn:xdaq-application:lid=100/getRunAndLumiSection'
+BSOnlineOmsServiceUrl = 'http://cmsoms-eventing.cms:9949/urn:xdaq-application:lid=100/getRunAndLumiSection'
 useLockRecords = True
 
 import sys
@@ -37,13 +37,6 @@ elif live:
 else:
   process.load("DQM.Integration.config.fileinputsource_cfi")
   from DQM.Integration.config.fileinputsource_cfi import options
-
-# new stream label
-#process.source.streamLabel = cms.untracked.string('streamDQMOnlineBeamspot')
-
-# for testing in lxplus
-#process.load("DQM.Integration.config.fileinputsource_cfi")
-#from DQM.Integration.config.fileinputsource_cfi import options
 
 #--------------------------
 # HLT Filter
@@ -173,6 +166,4 @@ print("Configured frontierKey", options.runUniqueKey)
 # Final path
 print("Final Source settings:", process.source)
 
-process.p = cms.Path(process.dqmcommon
-                    * process.monitor )
-
+process.p = cms.Path( process.dqmcommon * process.monitor )

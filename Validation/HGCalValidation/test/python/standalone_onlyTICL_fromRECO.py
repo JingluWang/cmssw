@@ -45,10 +45,9 @@ process.source = cms.Source("PoolSource",
 process.source.duplicateCheckMode = cms.untracked.string('noDuplicateCheck')
 
 process.options = cms.untracked.PSet(
-    FailPath = cms.untracked.vstring(),
     IgnoreCompletely = cms.untracked.vstring(),
     Rethrow = cms.untracked.vstring(),
-    SkipEvent = cms.untracked.vstring(),
+    TryToContinue = cms.untracked.vstring(),
     allowUnscheduled = cms.obsolete.untracked.bool,
     canDeleteEarly = cms.untracked.vstring(),
     emptyRunLumiMode = cms.obsolete.untracked.string,
@@ -127,7 +126,7 @@ process.ticl_seq = cms.Sequence(
 
 process.ticl_step = cms.Path(process.ticl_seq)
 process.ticl_prevalidation_step = cms.Path(process.globalPrevalidationHGCal)
-process.ticl_validation = cms.Sequence(process.hgcalLayerClusters+process.hgcalRecHitMapProducer+process.hgcalValidatorSequence)
+process.ticl_validation = cms.Sequence(process.hgcalLayerClusters+process.recHitMapProducer+process.hgcalValidatorSequence)
 process.ticl_validation_step = cms.EndPath(process.ticl_validation)
 process.ticl_FEVToutput_step = cms.EndPath(process.ticl_FEVToutput)
 process.DQMoutput_step = cms.EndPath(process.DQMoutput)

@@ -1,12 +1,14 @@
 <!-- host-only plugins -->
 <library file="*.cc" name="HeterogeneousCoreAlpakaTestPlugins">
   <use name="alpaka"/>
+  <use name="fmt"/>
   <use name="DataFormats/PortableTestObjects"/>
   <use name="FWCore/Framework"/>
   <use name="FWCore/MessageLogger"/>
   <use name="FWCore/ParameterSet"/>
   <use name="FWCore/Utilities"/>
   <use name="HeterogeneousCore/AlpakaTest"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
   <flags EDM_PLUGIN="1"/>
 </library>
 

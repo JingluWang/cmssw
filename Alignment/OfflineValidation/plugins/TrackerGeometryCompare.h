@@ -53,6 +53,8 @@ public:
 
   void analyze(const edm::Event&, const edm::EventSetup&) override;
 
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+
 private:
   //parameters
   std::vector<align::StructureType> m_theLevels;
@@ -89,6 +91,7 @@ private:
   const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topoToken_;
   const edm::ESGetToken<GeometricDet, IdealGeometryRecord> geomDetToken_;
   const edm::ESGetToken<PTrackerParameters, PTrackerParametersRcd> ptpToken_;
+  const edm::ESGetToken<PTrackerAdditionalParametersPerDet, PTrackerAdditionalParametersPerDetRcd> ptitpToken_;
   const edm::ESGetToken<SiPixelQuality, SiPixelQualityRcd> pixQualityToken_;
   const edm::ESGetToken<SiStripQuality, SiStripQualityRcd> stripQualityToken_;
 
@@ -116,6 +119,7 @@ private:
   bool weightById_;
   std::string weightByIdFile_;
   std::vector<unsigned int> weightByIdVector_;
+  SiPixelPI::phase phase_;
 
   std::vector<uint32_t> detIdFlagVector_;
   align::StructureType commonTrackerLevel_;

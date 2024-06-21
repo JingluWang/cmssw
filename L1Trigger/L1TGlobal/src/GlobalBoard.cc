@@ -5,14 +5,21 @@
  * Description: Global Trigger Logic board, see header file for details.
  *
  * Implementation:
- *    <TODO: enter implementation details>
+ *    Class responsible for receiving the objects from the different subsystems 
+ *    and for running the Global Trigger Logic (GTL) and Final Decision Logic (FDL).
+ *    It is directly called by the L1TGlobalProducer.
+ *    The emulator considers a single board for all algorithms. 
  *
- * \author: M. Fierro            - HEPHY Vienna - ORCA version
- * \author: Vasile Mihai Ghete   - HEPHY Vienna - CMSSW version
- * \author: Vladimir Rekovic     - add correlation with overlap removal cases
- *                               - fractional prescales
- * \author: Elisa Fontanesi      - extended for three-body correlation conditions
+ * \author: M. Fierro                    - HEPHY Vienna - ORCA version
+ * \author: V. M. Ghete                  - HEPHY Vienna - CMSSW version
+ * \author: V. Rekovic                   - add correlation with overlap removal cases
+ *                                       - fractional prescales
+ * \author: E. Fontanesi                 - extended for three-body correlation conditions
  *
+ * \author: E. Fontanesi, E. Yigitbasi, A. Loeliger (original implementation by S. Dildick, 2021)   
+ *                                       - fix for the muon shower triggers and check on all BXs
+ * \author: E. Fontanesi                 - added 2Loose HMT for 2023 Run 3
+ *                                       - added ZDC triggers for 2023 HI data-taking
  * $Date$
  * $Revision$
  *
@@ -25,11 +32,12 @@
 #include "DataFormats/L1TGlobal/interface/GlobalObjectMap.h"
 #include "L1Trigger/L1TGlobal/interface/TriggerMenu.h"
 #include "L1Trigger/L1TGlobal/interface/GlobalAlgorithm.h"
-
 #include "L1Trigger/L1TGlobal/interface/MuonTemplate.h"
 #include "L1Trigger/L1TGlobal/interface/MuonShowerTemplate.h"
 #include "L1Trigger/L1TGlobal/interface/CaloTemplate.h"
 #include "L1Trigger/L1TGlobal/interface/EnergySumTemplate.h"
+#include "L1Trigger/L1TGlobal/interface/EnergySumZdcTemplate.h"
+#include "L1Trigger/L1TGlobal/interface/AXOL1TLTemplate.h"
 #include "L1Trigger/L1TGlobal/interface/ExternalTemplate.h"
 #include "L1Trigger/L1TGlobal/interface/CorrelationTemplate.h"
 #include "L1Trigger/L1TGlobal/interface/CorrelationThreeBodyTemplate.h"
@@ -37,15 +45,16 @@
 #include "L1Trigger/L1TGlobal/interface/GlobalCondition.h"
 #include "L1Trigger/L1TGlobal/interface/CorrCondition.h"
 #include "L1Trigger/L1TGlobal/interface/CorrWithOverlapRemovalCondition.h"
-
 #include "L1Trigger/L1TGlobal/interface/ConditionEvaluation.h"
 #include "L1Trigger/L1TGlobal/interface/AlgorithmEvaluation.h"
 
-// Conditions for uGt
+// Conditions for uGT
 #include "L1Trigger/L1TGlobal/interface/MuCondition.h"
 #include "L1Trigger/L1TGlobal/interface/MuonShowerCondition.h"
 #include "L1Trigger/L1TGlobal/interface/CaloCondition.h"
 #include "L1Trigger/L1TGlobal/interface/EnergySumCondition.h"
+#include "L1Trigger/L1TGlobal/interface/EnergySumZdcCondition.h"
+#include "L1Trigger/L1TGlobal/interface/AXOL1TLCondition.h"
 #include "L1Trigger/L1TGlobal/interface/ExternalCondition.h"
 #include "L1Trigger/L1TGlobal/interface/CorrCondition.h"
 #include "L1Trigger/L1TGlobal/interface/CorrThreeBodyCondition.h"
@@ -54,14 +63,15 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/MessageLogger/interface/MessageDrop.h"
 
-// constructor
+// Constructor
 l1t::GlobalBoard::GlobalBoard()
     : m_candL1Mu(new BXVector<const l1t::Muon*>),
-      m_candL1MuShower(new BXVector<const l1t::MuonShower*>),
+      m_candL1MuShower(new BXVector<std::shared_ptr<l1t::MuonShower>>),
       m_candL1EG(new BXVector<const l1t::L1Candidate*>),
       m_candL1Tau(new BXVector<const l1t::L1Candidate*>),
       m_candL1Jet(new BXVector<const l1t::L1Candidate*>),
       m_candL1EtSum(new BXVector<const l1t::EtSum*>),
+      m_candL1EtSumZdc(new BXVector<const l1t::EtSum*>),
       m_candL1External(new BXVector<const GlobalExtBlk*>),
       m_currentLumi(0),
       m_isDebugEnabled(edm::isDebugEnabled()) {
@@ -72,7 +82,7 @@ l1t::GlobalBoard::GlobalBoard()
 
   m_prescaleCounterAlgoTrig.clear();
 
-  // initialize cached IDs
+  // Initialize cached IDs
   m_l1GtMenuCacheID = 0ULL;
   m_l1CaloGeometryCacheID = 0ULL;
   m_l1MuTriggerScalesCacheID = 0ULL;
@@ -80,26 +90,24 @@ l1t::GlobalBoard::GlobalBoard()
   // Counter for number of events board sees
   m_boardEventCount = 0;
 
-  // Need to expand use with more than one uGt GlobalBoard for now assume 1
+  // A single uGT GlobalBoard is taken into account in the emulator
   m_uGtBoardNumber = 0;
   m_uGtFinalBoard = true;
 }
 
-// destructor
+// Destructor
 l1t::GlobalBoard::~GlobalBoard() {
-  //reset();  //why would we need a reset?
   delete m_candL1Mu;
   delete m_candL1MuShower;
   delete m_candL1EG;
   delete m_candL1Tau;
   delete m_candL1Jet;
   delete m_candL1EtSum;
+  delete m_candL1EtSumZdc;
   delete m_candL1External;
-
-  //    delete m_gtEtaPhiConversions;
 }
 
-// operations
+// Operations
 void l1t::GlobalBoard::setBxFirst(int bx) { m_bxFirst_ = bx; }
 
 void l1t::GlobalBoard::setBxLast(int bx) { m_bxLast_ = bx; }
@@ -121,6 +129,7 @@ void l1t::GlobalBoard::init(const int numberPhysTriggers,
   m_candL1Tau->setBXRange(m_bxFirst_, m_bxLast_);
   m_candL1Jet->setBXRange(m_bxFirst_, m_bxLast_);
   m_candL1EtSum->setBXRange(m_bxFirst_, m_bxLast_);
+  m_candL1EtSumZdc->setBXRange(m_bxFirst_, m_bxLast_);
   m_candL1External->setBXRange(m_bxFirst_, m_bxLast_);
 
   m_uGtAlgBlk.reset();
@@ -134,16 +143,17 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
                                              const edm::EDGetTokenT<BXVector<l1t::Tau>>& tauInputToken,
                                              const edm::EDGetTokenT<BXVector<l1t::Jet>>& jetInputToken,
                                              const edm::EDGetTokenT<BXVector<l1t::EtSum>>& sumInputToken,
+                                             const edm::EDGetTokenT<BXVector<l1t::EtSum>>& sumZdcInputToken,
                                              const bool receiveEG,
                                              const int nrL1EG,
                                              const bool receiveTau,
                                              const int nrL1Tau,
                                              const bool receiveJet,
                                              const int nrL1Jet,
-                                             const bool receiveEtSums) {
+                                             const bool receiveEtSums,
+                                             const bool receiveEtSumsZdc) {
   if (m_verbosity) {
     LogDebug("L1TGlobal") << "\n**** Board receiving Calo Data ";
-    //<<  "\n     from input tag " << caloInputTag << "\n"
   }
 
   resetCalo();
@@ -155,8 +165,7 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
 
     if (!egData.isValid()) {
       if (m_verbosity) {
-        edm::LogWarning("L1TGlobal") << "\nWarning: BXVector<l1t::EGamma> with input tag "
-                                     //<< caloInputTag
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the BXVector<l1t::EGamma> collection"
                                      << "\nrequested in configuration, but not found in the event.\n";
       }
     } else {
@@ -180,10 +189,8 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
           nObj++;
         }  //end loop over EG in bx
       }    //end loop over bx
-
-    }  //end if over valid EG data
-
-  }  //end if ReveiveEG data
+    }      //end if over valid EG data
+  }        //end if ReceiveEG data
 
   if (receiveTau) {
     edm::Handle<BXVector<l1t::Tau>> tauData;
@@ -191,8 +198,7 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
 
     if (!tauData.isValid()) {
       if (m_verbosity) {
-        edm::LogWarning("L1TGlobal") << "\nWarning: BXVector<l1t::Tau> with input tag "
-                                     //<< caloInputTag
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the BXVector<l1t::Tau> collection"
                                      << "\nrequested in configuration, but not found in the event.\n";
       }
     } else {
@@ -217,10 +223,8 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
 
         }  //end loop over tau in bx
       }    //end loop over bx
-
-    }  //end if over valid tau data
-
-  }  //end if ReveiveTau data
+    }      //end if over valid tau data
+  }        //end if ReceiveTau data
 
   if (receiveJet) {
     edm::Handle<BXVector<l1t::Jet>> jetData;
@@ -228,8 +232,7 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
 
     if (!jetData.isValid()) {
       if (m_verbosity) {
-        edm::LogWarning("L1TGlobal") << "\nWarning: BXVector<l1t::Jet> with input tag "
-                                     //<< caloInputTag
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the BXVector<l1t::Jet> collection"
                                      << "\nrequested in configuration, but not found in the event.\n";
       }
     } else {
@@ -253,10 +256,8 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
           nObj++;
         }  //end loop over jet in bx
       }    //end loop over bx
-
-    }  //end if over valid jet data
-
-  }  //end if ReveiveJet data
+    }      //end if over valid jet data
+  }        //end if ReceiveJet data
 
   if (receiveEtSums) {
     edm::Handle<BXVector<l1t::EtSum>> etSumData;
@@ -264,8 +265,7 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
 
     if (!etSumData.isValid()) {
       if (m_verbosity) {
-        edm::LogWarning("L1TGlobal") << "\nWarning: BXVector<l1t::EtSum> with input tag "
-                                     //<< caloInputTag
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the BXVector<l1t::EtSum> collection"
                                      << "\nrequested in configuration, but not found in the event.\n";
       }
     } else {
@@ -274,7 +274,7 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
         if (i < m_bxFirst_ || i > m_bxLast_)
           continue;
 
-        //Loop over jet in this bx
+        //Loop over EtSum objects in this bx
         for (std::vector<l1t::EtSum>::const_iterator etsum = etSumData->begin(i); etsum != etSumData->end(i); ++etsum) {
           (*m_candL1EtSum).push_back(i, &(*etsum));
 
@@ -316,8 +316,30 @@ void l1t::GlobalBoard::receiveCaloObjectData(const edm::Event& iEvent,
 		  }
 */
 
-        }  //end loop over jet in bx
+        }  //end loop over EtSum objects in bx
       }    //end loop over Bx
+    }
+  }
+
+  if (receiveEtSumsZdc) {
+    edm::Handle<BXVector<l1t::EtSum>> etSumData;
+    iEvent.getByToken(sumZdcInputToken, etSumData);
+
+    if (!etSumData.isValid()) {
+      if (m_verbosity) {
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the ZDC Energy Sums collection"
+                                     << "\nrequested in configuration, but not found in the event.\n";
+      }
+    } else {
+      for (int i = etSumData->getFirstBX(); i <= etSumData->getLastBX(); ++i) {
+        // Prevent from pushing back bx that is outside of allowed range
+        if (i < m_bxFirst_ || i > m_bxLast_)
+          continue;
+
+        for (std::vector<l1t::EtSum>::const_iterator etsum = etSumData->begin(i); etsum != etSumData->end(i); ++etsum) {
+          (*m_candL1EtSumZdc).push_back(i, &(*etsum));
+        }
+      }  //end loop over Bx
     }
   }
 }
@@ -341,8 +363,7 @@ void l1t::GlobalBoard::receiveMuonObjectData(const edm::Event& iEvent,
 
     if (!muonData.isValid()) {
       if (m_verbosity) {
-        edm::LogWarning("L1TGlobal") << "\nWarning: BXVector<l1t::Muon> with input tag "
-                                     //<< muInputTag
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the BXVector<l1t::Muon> collection"
                                      << "\nrequested in configuration, but not found in the event.\n";
       }
     } else {
@@ -366,10 +387,8 @@ void l1t::GlobalBoard::receiveMuonObjectData(const edm::Event& iEvent,
           nObj++;
         }  //end loop over muons in bx
       }    //end loop over bx
-
-    }  //end if over valid muon data
-
-  }  //end if ReveiveMuon data
+    }      //end if over valid muon data
+  }        //end if ReceiveMuon data
 }
 
 // receive muon shower data from Global Muon Trigger
@@ -384,39 +403,56 @@ void l1t::GlobalBoard::receiveMuonShowerObjectData(const edm::Event& iEvent,
 
     if (!muonData.isValid()) {
       if (m_verbosity) {
-        edm::LogWarning("L1TGlobal") << "\nWarning: BXVector<l1t::MuonShower> with input tag "
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the BXVector<l1t::MuonShower> collection"
                                      << "\nrequested in configuration, but not found in the event.\n";
       }
     } else {
-      //Loop over Muon Showers in this bx
-      int nObj = 0;
-      for (auto mu = muonData->begin(0); mu != muonData->end(0); ++mu) {
-        if (nObj < nrL1MuShower) {
-          /* Important here to split up the single object into 4 separate MuonShower
-             bits for the global board. This is because the UTM library considers those bits separate as well
-           */
-          l1t::MuonShower mus0;
-          l1t::MuonShower mus1;
-          l1t::MuonShower musOutOfTime0;
-          l1t::MuonShower musOutOfTime1;
+      // Loop over bx in muon data
+      for (int i = muonData->getFirstBX(); i <= muonData->getLastBX(); ++i) {
+        // Prevent from pushing back bx that is outside of allowed range
+        if (i < m_bxFirst_ || i > m_bxLast_)
+          continue;
 
-          mus0.setMus0(mu->mus0());
-          mus1.setMus1(mu->mus1());
-          musOutOfTime0.setMusOutOfTime0(mu->musOutOfTime0());
-          musOutOfTime1.setMusOutOfTime1(mu->musOutOfTime1());
+        // Loop over Muon Showers in this bx
+        int nObj = 0;
+        for (std::vector<l1t::MuonShower>::const_iterator mu = muonData->begin(i); mu != muonData->end(i); ++mu) {
+          if (nObj < nrL1MuShower) {
+            /* NOTE: here the single object is split up into 5 separate MuonShower objects 
+	       similarly to the description in the UTM library, where the conditions are four different objects.
+	    */
 
-          (*m_candL1MuShower).push_back(0, &mus0);
-          (*m_candL1MuShower).push_back(0, &mus1);
-          (*m_candL1MuShower).push_back(0, &musOutOfTime0);
-          (*m_candL1MuShower).push_back(0, &musOutOfTime1);
-        } else {
-          edm::LogWarning("L1TGlobal") << " Too many Muon Showers (" << nObj
-                                       << ") for uGT Configuration maxMuShower =" << nrL1MuShower;
-        }
-        nObj++;
-      }  //end loop over muon showers in bx
-    }    //end if over valid muon shower data
-  }      //end if ReveiveMuonShower data
+            std::shared_ptr<l1t::MuonShower> musOneNominalInTime =
+                std::make_shared<l1t::MuonShower>(false, false, false, false, false, false);
+            std::shared_ptr<l1t::MuonShower> musOneTightInTime =
+                std::make_shared<l1t::MuonShower>(false, false, false, false, false, false);
+            std::shared_ptr<l1t::MuonShower> musTwoLooseDiffSectorsInTime =
+                std::make_shared<l1t::MuonShower>(false, false, false, false, false, false);
+            std::shared_ptr<l1t::MuonShower> musOutOfTime0 =
+                std::make_shared<l1t::MuonShower>(false, false, false, false, false, false);
+            std::shared_ptr<l1t::MuonShower> musOutOfTime1 =
+                std::make_shared<l1t::MuonShower>(false, false, false, false, false, false);
+
+            musOneNominalInTime->setOneNominalInTime(mu->isOneNominalInTime());
+            musOneTightInTime->setOneTightInTime(mu->isOneTightInTime());
+            musTwoLooseDiffSectorsInTime->setTwoLooseDiffSectorsInTime(mu->isTwoLooseDiffSectorsInTime());
+            musOutOfTime0->setMusOutOfTime0(mu->musOutOfTime0());
+            musOutOfTime1->setMusOutOfTime1(mu->musOutOfTime1());
+
+            (*m_candL1MuShower).push_back(i, musOneNominalInTime);
+            (*m_candL1MuShower).push_back(i, musOneTightInTime);
+            (*m_candL1MuShower).push_back(i, musTwoLooseDiffSectorsInTime);
+            (*m_candL1MuShower).push_back(i, musOutOfTime0);
+            (*m_candL1MuShower).push_back(i, musOutOfTime1);
+
+          } else {
+            edm::LogWarning("L1TGlobal") << " Too many Muon Showers (" << nObj
+                                         << ") for uGT Configuration maxMuShower =" << nrL1MuShower;
+          }
+          nObj++;
+        }  //end loop over muon showers in bx
+      }    //end loop over bx
+    }      //end if over valid muon shower data
+  }        //end if ReceiveMuonShower data
 }
 
 // receive data from Global External Conditions
@@ -437,8 +473,7 @@ void l1t::GlobalBoard::receiveExternalData(const edm::Event& iEvent,
 
     if (!extData.isValid()) {
       if (m_verbosity) {
-        edm::LogWarning("L1TGlobal") << "\nWarning: BXVector<GlobalExtBlk> with input tag "
-                                     //<< muInputTag
+        edm::LogWarning("L1TGlobal") << "\nWarning: Input tag for the BXVector<GlobalExtBlk> collection"
                                      << "\nrequested in configuration, but not found in the event.\n";
       }
     } else {
@@ -453,10 +488,8 @@ void l1t::GlobalBoard::receiveExternalData(const edm::Event& iEvent,
           (*m_candL1External).push_back(i, &(*ext));
         }  //end loop over ext in bx
       }    //end loop over bx
-
-    }  //end if over valid ext data
-
-  }  //end if ReveiveExt data
+    }      //end if over valid ext data
+  }        //end if ReceiveExt data
 }
 
 // run GTL
@@ -488,7 +521,6 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
 
   const std::vector<std::vector<MuonTemplate>>& corrMuon = m_l1GtMenu->corMuonTemplate();
 
-  // Comment out for now
   const std::vector<std::vector<CaloTemplate>>& corrCalo = m_l1GtMenu->corCaloTemplate();
 
   const std::vector<std::vector<EnergySumTemplate>>& corrEnergySum = m_l1GtMenu->corEnergySumTemplate();
@@ -496,10 +528,11 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
   LogDebug("L1TGlobal") << "Size corrMuon " << corrMuon.size() << "\nSize corrCalo " << corrCalo.size()
                         << "\nSize corrSums " << corrEnergySum.size();
 
-  // loop over condition maps (one map per condition chip)
-  // then loop over conditions in the map
+  // -----------------------------------------------------
+  // Loop over condition maps (one map per condition chip),
+  // then loop over conditions in the map and
   // save the results in temporary maps
-
+  // -----------------------------------------------------
   // never happens in production but at first event...
   if (m_conditionResultMaps.size() != conditionMap.size()) {
     m_conditionResultMaps.clear();
@@ -528,7 +561,6 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
 
           muCondition->evaluateConditionStoreResult(iBxInEvent);
 
-          // BLW COmment out for now
           cMapResults[itCond->first] = muCondition;
 
           if (m_verbosity && m_isDebugEnabled) {
@@ -597,6 +629,41 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
           //                    delete eSumCondition;
 
         } break;
+        case CondEnergySumZdc: {
+          EnergySumZdcCondition* eSumZdcCondition = new EnergySumZdcCondition(itCond->second, this);
+
+          eSumZdcCondition->setVerbosity(m_verbosity);
+          eSumZdcCondition->evaluateConditionStoreResult(iBxInEvent);
+
+          cMapResults[itCond->first] = eSumZdcCondition;
+
+          if (m_verbosity && m_isDebugEnabled) {
+            std::ostringstream myCout;
+            eSumZdcCondition->print(myCout);
+
+            LogTrace("L1TGlobal") << myCout.str();
+          }
+          //                    delete eSumZdcCondition;
+
+        } break;
+        case CondAXOL1TL: {
+          AXOL1TLCondition* axol1tlCondition = new AXOL1TLCondition(itCond->second, this);
+
+          axol1tlCondition->setVerbosity(m_verbosity);
+
+          axol1tlCondition->evaluateConditionStoreResult(iBxInEvent);
+
+          cMapResults[itCond->first] = axol1tlCondition;
+
+          if (m_verbosity && m_isDebugEnabled) {
+            std::ostringstream myCout;
+            axol1tlCondition->print(myCout);
+
+            edm::LogWarning("L1TGlobal") << "axol1tlCondition " << myCout.str();
+          }
+          //delete axol1tlCCondition;
+
+        } break;
 
         case CondExternal: {
           ExternalCondition* extCondition = new ExternalCondition(itCond->second, this);
@@ -616,7 +683,7 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
 
         } break;
         case CondCorrelation: {
-          // get first the sub-conditions
+          // get first the subconditions
           const CorrelationTemplate* corrTemplate = static_cast<const CorrelationTemplate*>(itCond->second);
           const GtConditionCategory cond0Categ = corrTemplate->cond0Category();
           const GtConditionCategory cond1Categ = corrTemplate->cond1Category();
@@ -681,7 +748,7 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
 
         } break;
         case CondCorrelationThreeBody: {
-          // get first the sub-conditions
+          // get first the subconditions
           const CorrelationThreeBodyTemplate* corrTemplate =
               static_cast<const CorrelationThreeBodyTemplate*>(itCond->second);
           const GtConditionCategory cond0Categ = corrTemplate->cond0Category();
@@ -735,7 +802,7 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
         } break;
 
         case CondCorrelationWithOverlapRemoval: {
-          // get first the sub-conditions
+          // get first the subconditions
           const CorrelationWithOverlapRemovalTemplate* corrTemplate =
               static_cast<const CorrelationWithOverlapRemovalTemplate*>(itCond->second);
           const GtConditionCategory cond0Categ = corrTemplate->cond0Category();
@@ -754,7 +821,7 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
           int cond1NrL1Objects = 0;
           int cond2NrL1Objects = 0;
           LogDebug("L1TGlobal") << " cond0NrL1Objects" << cond0NrL1Objects << "  cond1NrL1Objects  " << cond1NrL1Objects
-                                << "  cond2NrL1Objects  " << cond2NrL1Objects;
+                                << " cond2NrL1Objects  " << cond2NrL1Objects;
 
           switch (cond0Categ) {
             case CondMuon: {
@@ -832,9 +899,10 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
     }
   }
 
-  // loop over algorithm map
-  /// DMP Start debugging here
-  // empty vector for object maps - filled during loop
+  // -----------------------
+  // Loop over algorithm map
+  // -----------------------
+  // Empty vector for object maps - filled during loop
   std::vector<GlobalObjectMap> objMapVec;
   if (produceL1GtObjectMapRecord && (iBxInEvent == 0))
     objMapVec.reserve(numberPhysTriggers);
@@ -868,11 +936,9 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
       std::vector<L1TObjectTypeInCond> otypes;
       for (auto iop = gtAlg.operandTokenVector().begin(); iop != gtAlg.operandTokenVector().end(); ++iop) {
         //cout << "INFO:  operand name:  " << iop->tokenName << "\n";
-        int myChip = -1;
         int found = 0;
         L1TObjectTypeInCond otype;
         for (auto imap = conditionMap.begin(); imap != conditionMap.end(); imap++) {
-          myChip++;
           auto match = imap->find(iop->tokenName);
 
           if (match != imap->end()) {
@@ -933,7 +999,9 @@ void l1t::GlobalBoard::runGTL(const edm::Event&,
   }
 }
 
-// run GTL
+// -------
+// Run GTL
+// -------
 void l1t::GlobalBoard::runFDL(const edm::Event& iEvent,
                               const int iBxInEvent,
                               const int totalBxInEvent,
@@ -1048,7 +1116,9 @@ void l1t::GlobalBoard::runFDL(const edm::Event& iEvent,
 
   }  ///if we are masking.
 
+  // --------------------------
   // Set FinalOR for this board
+  // --------------------------
   m_algFinalOr = (m_algIntermOr & !m_algFinalOrVeto);
 }
 
@@ -1106,11 +1176,13 @@ void l1t::GlobalBoard::resetCalo() {
   m_candL1Tau->clear();
   m_candL1Jet->clear();
   m_candL1EtSum->clear();
+  m_candL1EtSumZdc->clear();
 
   m_candL1EG->setBXRange(m_bxFirst_, m_bxLast_);
   m_candL1Tau->setBXRange(m_bxFirst_, m_bxLast_);
   m_candL1Jet->setBXRange(m_bxFirst_, m_bxLast_);
   m_candL1EtSum->setBXRange(m_bxFirst_, m_bxLast_);
+  m_candL1EtSumZdc->setBXRange(m_bxFirst_, m_bxLast_);
 }
 
 void l1t::GlobalBoard::resetExternal() {

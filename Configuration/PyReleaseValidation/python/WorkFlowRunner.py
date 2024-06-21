@@ -8,7 +8,7 @@ from os.path import exists, basename, join
 from datetime import datetime
 
 class WorkFlowRunner(Thread):
-    def __init__(self, wf, noRun=False,dryRun=False,cafVeto=True,dasOptions="",jobReport=False, nThreads=1, nStreams=0, maxSteps=9999):
+    def __init__(self, wf, noRun=False,dryRun=False,cafVeto=True,dasOptions="",jobReport=False, nThreads=1, nStreams=0, maxSteps=9999, nEvents=0):
         Thread.__init__(self)
         self.wf = wf
 
@@ -24,6 +24,8 @@ class WorkFlowRunner(Thread):
         self.nThreads=nThreads
         self.nStreams=nStreams
         self.maxSteps=maxSteps
+        self.nEvents=nEvents
+        self.recoOutput=''
         
         self.wfDir=str(self.wf.numId)+'_'+self.wf.nameId
         return
@@ -157,15 +159,28 @@ class WorkFlowRunner(Thread):
                     # Disable input for premix stage2 in FastSim to allow combined stage1+stage2 workflow (in FS, stage2 does also GEN)
                     # Ugly hack but works
                     if istep!=1 and not '--filein' in cmd and not 'premix_stage1' in cmd and not ("--fast" in cmd and "premix_stage2" in cmd):
-                        cmd+=' --filein  file:step%s.root '%(istep-1,)
+                        steps = cmd.split("-s ")[1].split(" ")[0] ## relying on the syntax: cmsDriver -s STEPS --otherFlags
+                        if "ALCA" not in steps:
+                            cmd+=' --filein  file:step%s.root '%(istep-1,)
+                        elif "ALCA" in steps and "RECO" in steps:
+                            cmd+=' --filein  file:step%s.root '%(istep-1,)
+                        else:
+                            cmd+=' --filein %s'%(self.recoOutput)
                     if not '--fileout' in com:
                         cmd+=' --fileout file:step%s.root '%(istep,)
+                        if "RECO" in cmd:
+                            self.recoOutput = "file:step%d.root"%(istep)
                 if self.jobReport:
                   cmd += ' --suffix "-j JobReport%s.xml " ' % istep
                 if (self.nThreads > 1) and ('HARVESTING' not in cmd) and ('ALCAHARVEST' not in cmd):
                   cmd += ' --nThreads %s' % self.nThreads
                 if (self.nStreams > 0) and ('HARVESTING' not in cmd) and ('ALCAHARVEST' not in cmd):
                   cmd += ' --nStreams %s' % self.nStreams
+                if (self.nEvents > 0):
+                  event_token = " -n "
+                  split = cmd.split(event_token)
+                  pos_cmd = " ".join(split[1].split(" ")[1:])
+                  cmd = split[0] + event_token + '%s ' % self.nEvents + pos_cmd
                 cmd+=closeCmd(istep,self.wf.nameId)            
                 retStep = 0
                 if istep>self.maxSteps:

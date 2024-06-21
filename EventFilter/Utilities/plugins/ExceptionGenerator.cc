@@ -216,7 +216,7 @@ namespace evf {
           void *vp = malloc(1024);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
-          memset((char *)vp - 32, 0, 1024);
+          memset((char *)vp - 32 + intqualifier_, 0, 1024);
 #pragma GCC diagnostic pop
           free(vp);
         } break;
@@ -249,7 +249,5 @@ namespace evf {
       }
     }
   }
-
-  void ExceptionGenerator::endLuminosityBlock(edm::LuminosityBlock const &lb, edm::EventSetup const &es) {}
 
 }  // end namespace evf

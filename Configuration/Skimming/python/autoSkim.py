@@ -1,10 +1,15 @@
 autoSkim = {
+
+ # Skim 2023
  'BTagMu' : 'LogError+LogErrorMonitor',
- 'DisplacedJet' : 'EXODisplacedJet+EXODelayedJet+EXODTCluster+EXOCSCCluster+LogError+LogErrorMonitor',
- 'JetMET' : 'JetHTJetPlusHOFilter+EXOHighMET+EXODelayedJetMET+EXODisappTrk+LogError+LogErrorMonitor',
- 'EGamma':'ZElectron+WElectron+EXOMONOPOLE+EXODisappTrk+LogError+LogErrorMonitor',
+ 'DisplacedJet' : 'EXODisplacedJet+EXODelayedJet+EXODTCluster+EXOCSCCluster+EXOLLPJetHCAL+LogError+LogErrorMonitor',
+ 'JetMET0' : 'JetHTJetPlusHOFilter+EXOHighMET+EXODelayedJetMET+EXODisappTrk+EXOSoftDisplacedVertices+TeVJet+LogError+LogErrorMonitor',
+ 'JetMET1' : 'JetHTJetPlusHOFilter+EXOHighMET+EXODelayedJetMET+EXODisappTrk+EXOSoftDisplacedVertices+TeVJet+LogError+LogErrorMonitor',
+ 'EGamma0':'EGMJME+ZElectron+WElectron+EXOMONOPOLE+EXODisappTrk+IsoPhotonEB+LogError+LogErrorMonitor',
+ 'EGamma1':'EGMJME+ZElectron+WElectron+EXOMONOPOLE+EXODisappTrk+IsoPhotonEB+LogError+LogErrorMonitor',
  'Tau' : 'EXODisappTrk+LogError+LogErrorMonitor',
- 'Muon' : 'ZMu+EXODisappTrk+LogError+LogErrorMonitor',
+ 'Muon0' : 'MUOJME+ZMu+EXODisappTrk+EXOCSCCluster+EXODisappMuon+LogError+LogErrorMonitor',
+ 'Muon1' : 'MUOJME+ZMu+EXODisappTrk+EXOCSCCluster+EXODisappMuon+LogError+LogErrorMonitor',
  'MuonEG' : 'TopMuEG+LogError+LogErrorMonitor',
  'NoBPTX' : 'EXONoBPTXSkim+LogError+LogErrorMonitor',
  'HcalNZS' : 'LogError+LogErrorMonitor',
@@ -12,10 +17,32 @@ autoSkim = {
  'ZeroBias' : 'LogError+LogErrorMonitor',
  'Commissioning' : 'EcalActivity+LogError+LogErrorMonitor',
  'Cosmics':'CosmicSP+CosmicTP+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass0': 'ReserveDMu+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass1': 'ReserveDMu+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass2': 'ReserveDMu+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass3': 'ReserveDMu+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass4': 'ReserveDMu+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass5': 'ReserveDMu+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass6': 'ReserveDMu+LogError+LogErrorMonitor',
+ 'ParkingDoubleMuonLowMass7': 'ReserveDMu+LogError+LogErrorMonitor',
+
+ # These should be uncommented when 2022 data reprocessing
+ # Dedicated skim for 2022
+ 'JetMET' : 'JetHTJetPlusHOFilter+EXOHighMET+EXODelayedJetMET+EXODisappTrk+EXOSoftDisplacedVertices+TeVJet+LogError+LogErrorMonitor',
+ 'EGamma':'EGMJME+ZElectron+WElectron+EXOMONOPOLE+EXODisappTrk+IsoPhotonEB+LogError+LogErrorMonitor',
+ 'Muon' : 'MUOJME+ZMu+EXODisappTrk+EXODisappMuon+LogError+LogErrorMonitor',
+ 'JetHT' : 'JetHTJetPlusHOFilter+EXOSoftDisplacedVertices+TeVJet+LogError+LogErrorMonitor',
+ 'MET' : 'EXOHighMET+EXODelayedJetMET+EXODisappTrk+EXOSoftDisplacedVertices+TeVJet+LogError+LogErrorMonitor',
+ 'SingleMuon' : 'ZMu+EXODisappTrk+EXODisappMuon+LogError+LogErrorMonitor',
+ 'DoubleMuon' : 'MUOJME+LogError+LogErrorMonitor',
 
  # Used in unit test scenario ppEra_Run2_2018
- 'SingleMuon': 'LogError+LogErrorMonitor',
+ #'SingleMuon': 'LogError+LogErrorMonitor',
 }
+
+# For 2023 PbPb skims
+for i_split in range(32):
+    autoSkim[f'HIPhysicsRawPrime{i_split}'] = 'PbPbEMu+PbPbZEE+PbPbZMM+LogError+LogErrorMonitor'
 
 autoSkimRunII = {
  'BTagCSV' : 'LogError+LogErrorMonitor',

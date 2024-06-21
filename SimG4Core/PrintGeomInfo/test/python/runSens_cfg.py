@@ -1,22 +1,22 @@
 ###############################################################################
 # Way to use this:
-#   cmsRun runSens_cfg.py geometry=Run3
+#   cmsRun runSens_cfg.py geometry=2023
 #
-#   Options for geometry Run3, D88, D92, D93
+#   Options for geometry 2021, 2023, 2024
 #
 ###############################################################################
 import FWCore.ParameterSet.Config as cms
-import os, sys, imp, re
+import os, sys, importlib, re
 import FWCore.ParameterSet.VarParsing as VarParsing
 
 ####################################################################
 ### SETUP OPTIONS
 options = VarParsing.VarParsing('standard')
 options.register('geometry',
-                 "Run3",
+                 "2024",
                   VarParsing.VarParsing.multiplicity.singleton,
                   VarParsing.VarParsing.varType.string,
-                  "geometry of operations: Run3, D88, D92, D93")
+                  "geometry of operations: 2021, 2023, 2024")
 
 ### get and parse the command line arguments
 options.parseArguments()
@@ -26,22 +26,15 @@ print(options)
 #####p###############################################################
 # Use the options
 
-if (options.geometry == "Run3"):
-    geomFile = "Configuration.Geometry.GeometryExtended2021Reco_cff"
-    from Configuration.Eras.Era_Run3_DDD_cff import Run3_DDD
-    process = cms.Process('PrintSensitive',Run3_DDD)
-else:
-    geomFile = "Configuration.Geometry.GeometryExtended2026" + options.geometry + "Reco_cff"
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    process = cms.Process('PrintSensitive',Phase2C11M9)
+geomFile = "Configuration.Geometry.GeometryExtended" + options.geometry + "Reco_cff"
+from Configuration.Eras.Era_Run3_DDD_cff import Run3_DDD
+process = cms.Process('PrintSensitive',Run3_DDD)
 
 print("Geometry file: ", geomFile)
 
 process.load(geomFile)
 process.load('FWCore.MessageService.MessageLogger_cfi')
 
-process.MessageLogger.cerr.enable = False
-process.MessageLogger.files.SensDet = dict(extension="txt")
 process.MessageLogger.G4cout=dict()
 
 process.maxEvents = cms.untracked.PSet(
@@ -91,6 +84,7 @@ process.p1 = cms.Path(process.generator*process.VtxSmeared*process.generatorSmea
 process.g4SimHits.UseMagneticField        = False
 process.g4SimHits.Physics.DefaultCutValue = 10. 
 process.g4SimHits.Watchers = cms.VPSet(cms.PSet(
-	Name           = cms.untracked.string('*'),
+	Name           = cms.string('*'),
+        DD4Hep         = cms.bool(False),
 	type           = cms.string('PrintSensitive')
 ))

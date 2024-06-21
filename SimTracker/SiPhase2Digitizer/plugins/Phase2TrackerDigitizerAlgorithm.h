@@ -19,8 +19,8 @@
 
 // Units and Constants
 #include "DataFormats/Math/interface/CMSUnits.h"
-#include "CLHEP/Units/GlobalPhysicalConstants.h"
-#include "CLHEP/Units/GlobalSystemOfUnits.h"
+#include <CLHEP/Units/PhysicalConstants.h>
+#include <CLHEP/Units/SystemOfUnits.h>
 
 // forward declarations
 // For the random numbers
@@ -33,7 +33,6 @@ namespace CLHEP {
 class DetId;
 class GaussianTailNoiseGenerator;
 class SiG4UniversalFluctuation;
-class SiPixelFedCablingMap;
 class SiPixelGainCalibrationOfflineSimService;
 class SiPixelLorentzAngle;
 class SiPixelQuality;
@@ -93,7 +92,6 @@ protected:
   const SiPixelQuality* siPixelBadModule_;
 
   // Accessing Map and Geom:
-  const SiPixelFedCablingMap* fedCablingMap_;
   const TrackerGeometry* geom_;
   struct SubdetEfficiencies {
     SubdetEfficiencies(const edm::ParameterSet& conf);

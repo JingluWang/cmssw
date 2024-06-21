@@ -43,7 +43,6 @@
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-#include "Geometry/TrackerGeometryBuilder/interface/RectangularPixelTopology.h"
 #include "Geometry/CommonDetUnit/interface/GeomDetType.h"
 #include "Geometry/CommonDetUnit/interface/GeomDet.h"
 
@@ -60,6 +59,8 @@
 #include "DataFormats/L1TCorrelator/interface/TkJet.h"
 #include "DataFormats/L1TCorrelator/interface/TkJetFwd.h"
 #include "DataFormats/L1Trigger/interface/TkJetWord.h"
+#include "DataFormats/L1TCorrelator/interface/TkTriplet.h"
+#include "DataFormats/L1TCorrelator/interface/TkTripletFwd.h"
 #include "DataFormats/Math/interface/LorentzVector.h"
 #include "DataFormats/L1TCorrelator/interface/TkEtMiss.h"
 #include "DataFormats/L1TCorrelator/interface/TkEtMissFwd.h"
@@ -142,16 +143,36 @@ private:
   bool SaveTrackJets;
   bool SaveTrackSums;
 
-  edm::InputTag L1TrackInputTag;                           // L1 track collection
-  edm::InputTag MCTruthTrackInputTag;                      // MC truth collection
-  edm::InputTag L1TrackGTTInputTag;                        // L1 track collection
-  edm::InputTag L1TrackSelectedInputTag;                   // L1 track collection
-  edm::InputTag L1TrackSelectedEmulationInputTag;          // L1 track collection
-  edm::InputTag L1TrackExtendedInputTag;                   // L1 track collection
-  edm::InputTag MCTruthTrackExtendedInputTag;              // MC truth collection
-  edm::InputTag L1TrackExtendedGTTInputTag;                // L1 track collection
-  edm::InputTag L1TrackExtendedSelectedInputTag;           // L1 track collection
-  edm::InputTag L1TrackExtendedSelectedEmulationInputTag;  // L1 track collection
+  edm::InputTag L1TrackInputTag;                                              // L1 track collection
+  edm::InputTag MCTruthTrackInputTag;                                         // MC truth collection
+  edm::InputTag L1TrackGTTInputTag;                                           // L1 track collection
+  edm::InputTag L1TrackSelectedInputTag;                                      // L1 track collection
+  edm::InputTag L1TrackSelectedEmulationInputTag;                             // L1 track collection
+  edm::InputTag L1TrackSelectedAssociatedInputTag;                            // L1 track collection
+  edm::InputTag L1TrackSelectedAssociatedEmulationInputTag;                   // L1 track collection
+  edm::InputTag L1TrackSelectedForJetsInputTag;                               // L1 track collection
+  edm::InputTag L1TrackSelectedEmulationForJetsInputTag;                      // L1 track collection
+  edm::InputTag L1TrackSelectedAssociatedForJetsInputTag;                     // L1 track collection
+  edm::InputTag L1TrackSelectedAssociatedEmulationForJetsInputTag;            // L1 track collection
+  edm::InputTag L1TrackSelectedForEtMissInputTag;                             // L1 track collection
+  edm::InputTag L1TrackSelectedEmulationForEtMissInputTag;                    // L1 track collection
+  edm::InputTag L1TrackSelectedAssociatedForEtMissInputTag;                   // L1 track collection
+  edm::InputTag L1TrackSelectedAssociatedEmulationForEtMissInputTag;          // L1 track collection
+  edm::InputTag L1TrackExtendedInputTag;                                      // L1 track collection
+  edm::InputTag MCTruthTrackExtendedInputTag;                                 // MC truth collection
+  edm::InputTag L1TrackExtendedGTTInputTag;                                   // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedInputTag;                              // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedEmulationInputTag;                     // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedAssociatedInputTag;                    // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedAssociatedEmulationInputTag;           // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedForJetsInputTag;                       // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedEmulationForJetsInputTag;              // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedAssociatedForJetsInputTag;             // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedAssociatedEmulationForJetsInputTag;    // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedForEtMissInputTag;                     // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedEmulationForEtMissInputTag;            // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedAssociatedForEtMissInputTag;           // L1 track collection
+  edm::InputTag L1TrackExtendedSelectedAssociatedEmulationForEtMissInputTag;  // L1 track collection
   edm::InputTag MCTruthClusterInputTag;
   edm::InputTag L1StubInputTag;
   edm::InputTag MCTruthStubInputTag;
@@ -165,6 +186,8 @@ private:
   edm::InputTag TrackFastJetsInputTag;
   edm::InputTag TrackJetsInputTag;
   edm::InputTag TrackJetsEmuInputTag;
+  edm::InputTag TrackTripletsInputTag;
+
   edm::InputTag TrackMETInputTag;
   edm::InputTag TrackMETEmuInputTag;
   edm::InputTag TrackMHTInputTag;
@@ -188,11 +211,31 @@ private:
   edm::EDGetTokenT<L1TrackCollection> ttTrackGTTToken_;
   edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedToken_;
   edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedEmulationToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedAssociatedToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedAssociatedEmulationToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedEmulationForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedAssociatedForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedAssociatedEmulationForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedForEtMissToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedEmulationForEtMissToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedAssociatedForEtMissToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackSelectedAssociatedEmulationForEtMissToken_;
   edm::EDGetTokenT<L1TrackCollection> ttTrackExtendedToken_;
   edm::EDGetTokenT<TTTrackAssociationMap<Ref_Phase2TrackerDigi_>> ttTrackMCTruthExtendedToken_;
   edm::EDGetTokenT<L1TrackCollection> ttTrackExtendedGTTToken_;
   edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedToken_;
   edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedEmulationToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedAssociatedToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedAssociatedEmulationToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedEmulationForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedAssociatedForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedAssociatedEmulationForJetsToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedForEtMissToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedEmulationForEtMissToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedAssociatedForEtMissToken_;
+  edm::EDGetTokenT<L1TrackRefCollection> ttTrackExtendedSelectedAssociatedEmulationForEtMissToken_;
 
   edm::EDGetTokenT<std::vector<TrackingParticle>> TrackingParticleToken_;
   edm::EDGetTokenT<std::vector<TrackingVertex>> TrackingVertexToken_;
@@ -215,6 +258,7 @@ private:
   edm::EDGetTokenT<l1t::TkJetCollection> TrackJetsExtendedToken_;
   edm::EDGetTokenT<l1t::TkJetWordCollection> TrackJetsEmuToken_;
   edm::EDGetTokenT<l1t::TkJetWordCollection> TrackJetsExtendedEmuToken_;
+  edm::EDGetTokenT<l1t::TkTripletCollection> TrackTripletsToken_;
 
   edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> tTopoToken_;
   edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> tGeomToken_;
@@ -237,6 +281,7 @@ private:
   std::vector<float>* m_gen_phi;
   std::vector<float>* m_gen_pdgid;
   std::vector<float>* m_gen_z0;
+  std::vector<float>* m_gen_mother_pdgid;
 
   // all L1 tracks (prompt)
   std::vector<float>* m_trk_pt;
@@ -263,6 +308,8 @@ private:
   std::vector<int>* m_trk_combinatoric;
   std::vector<int>* m_trk_fake;  //0 fake, 1 track from primary interaction, 2 secondary track
   std::vector<int>* m_trk_matchtp_pdgid;
+  std::vector<int>* m_trk_matchtp_mother_pdgid;
+
   std::vector<float>* m_trk_matchtp_pt;
   std::vector<float>* m_trk_matchtp_eta;
   std::vector<float>* m_trk_matchtp_phi;
@@ -273,6 +320,16 @@ private:
   std::vector<float>* m_trk_gtt_phi;
   std::vector<int>* m_trk_selected_index;
   std::vector<int>* m_trk_selected_emulation_index;
+  std::vector<int>* m_trk_selected_associated_index;
+  std::vector<int>* m_trk_selected_associated_emulation_index;
+  std::vector<int>* m_trk_selected_forjets_index;
+  std::vector<int>* m_trk_selected_emulation_forjets_index;
+  std::vector<int>* m_trk_selected_associated_forjets_index;
+  std::vector<int>* m_trk_selected_associated_emulation_forjets_index;
+  std::vector<int>* m_trk_selected_foretmiss_index;
+  std::vector<int>* m_trk_selected_emulation_foretmiss_index;
+  std::vector<int>* m_trk_selected_associated_foretmiss_index;
+  std::vector<int>* m_trk_selected_associated_emulation_foretmiss_index;
 
   // all L1 tracks (extended)
   std::vector<float>* m_trkExt_pt;
@@ -309,6 +366,16 @@ private:
   std::vector<float>* m_trkExt_gtt_phi;
   std::vector<int>* m_trkExt_selected_index;
   std::vector<int>* m_trkExt_selected_emulation_index;
+  std::vector<int>* m_trkExt_selected_associated_index;
+  std::vector<int>* m_trkExt_selected_associated_emulation_index;
+  std::vector<int>* m_trkExt_selected_forjets_index;
+  std::vector<int>* m_trkExt_selected_emulation_forjets_index;
+  std::vector<int>* m_trkExt_selected_associated_forjets_index;
+  std::vector<int>* m_trkExt_selected_associated_emulation_forjets_index;
+  std::vector<int>* m_trkExt_selected_foretmiss_index;
+  std::vector<int>* m_trkExt_selected_emulation_foretmiss_index;
+  std::vector<int>* m_trkExt_selected_associated_foretmiss_index;
+  std::vector<int>* m_trkExt_selected_associated_emulation_foretmiss_index;
 
   // all tracking particles
   std::vector<float>* m_tp_pt;
@@ -439,6 +506,34 @@ private:
   std::vector<int>* m_trkjetem_ntracks;
   std::vector<int>* m_trkjetem_nxtracks;
 
+  std::vector<float>* m_triplet_phi;
+  std::vector<float>* m_triplet_eta;
+  std::vector<float>* m_triplet_pt;
+  std::vector<float>* m_triplet_mass;
+  std::vector<float>* m_triplet_charge;
+  std::vector<float>* m_triplet_dmassmax;
+  std::vector<float>* m_triplet_dmassmin;
+  std::vector<float>* m_triplet_dzmax;
+  std::vector<float>* m_triplet_dzmin;
+  std::vector<float>* m_triplet_trk1pt;
+  std::vector<float>* m_triplet_trk1eta;
+  std::vector<float>* m_triplet_trk1phi;
+  std::vector<float>* m_triplet_trk1z;
+  std::vector<float>* m_triplet_trk1npar;
+  std::vector<float>* m_triplet_trk1mva;
+  std::vector<float>* m_triplet_trk2pt;
+  std::vector<float>* m_triplet_trk2eta;
+  std::vector<float>* m_triplet_trk2phi;
+  std::vector<float>* m_triplet_trk2z;
+  std::vector<float>* m_triplet_trk2npar;
+  std::vector<float>* m_triplet_trk2mva;
+  std::vector<float>* m_triplet_trk3pt;
+  std::vector<float>* m_triplet_trk3eta;
+  std::vector<float>* m_triplet_trk3phi;
+  std::vector<float>* m_triplet_trk3z;
+  std::vector<float>* m_triplet_trk3npar;
+  std::vector<float>* m_triplet_trk3mva;
+
   std::vector<float>* m_trkjetExt_vz;
   std::vector<float>* m_trkjetExt_p;
   std::vector<float>* m_trkjetExt_phi;
@@ -498,9 +593,27 @@ L1TrackObjectNtupleMaker::L1TrackObjectNtupleMaker(edm::ParameterSet const& iCon
     L1TrackGTTInputTag = iConfig.getParameter<edm::InputTag>("L1TrackGTTInputTag");
     L1TrackSelectedInputTag = iConfig.getParameter<edm::InputTag>("L1TrackSelectedInputTag");
     L1TrackSelectedEmulationInputTag = iConfig.getParameter<edm::InputTag>("L1TrackSelectedEmulationInputTag");
+    L1TrackSelectedAssociatedInputTag = iConfig.getParameter<edm::InputTag>("L1TrackSelectedAssociatedInputTag");
+    L1TrackSelectedAssociatedEmulationInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackSelectedAssociatedEmulationInputTag");
+    L1TrackSelectedForJetsInputTag = iConfig.getParameter<edm::InputTag>("L1TrackSelectedForJetsInputTag");
+    L1TrackSelectedEmulationForJetsInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackSelectedEmulationForJetsInputTag");
+    L1TrackSelectedAssociatedForJetsInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackSelectedAssociatedForJetsInputTag");
+    L1TrackSelectedAssociatedEmulationForJetsInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackSelectedAssociatedEmulationForJetsInputTag");
+    L1TrackSelectedForEtMissInputTag = iConfig.getParameter<edm::InputTag>("L1TrackSelectedForEtMissInputTag");
+    L1TrackSelectedEmulationForEtMissInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackSelectedEmulationForEtMissInputTag");
+    L1TrackSelectedAssociatedForEtMissInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackSelectedAssociatedForEtMissInputTag");
+    L1TrackSelectedAssociatedEmulationForEtMissInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackSelectedAssociatedEmulationForEtMissInputTag");
     TrackFastJetsInputTag = iConfig.getParameter<InputTag>("TrackFastJetsInputTag");
     TrackJetsInputTag = iConfig.getParameter<InputTag>("TrackJetsInputTag");
     TrackJetsEmuInputTag = iConfig.getParameter<InputTag>("TrackJetsEmuInputTag");
+    TrackTripletsInputTag = iConfig.getParameter<InputTag>("TrackTripletsInputTag");
     TrackMETInputTag = iConfig.getParameter<InputTag>("TrackMETInputTag");
     TrackMETEmuInputTag = iConfig.getParameter<InputTag>("TrackMETEmuInputTag");
     TrackMHTInputTag = iConfig.getParameter<InputTag>("TrackMHTInputTag");
@@ -511,9 +624,24 @@ L1TrackObjectNtupleMaker::L1TrackObjectNtupleMaker(edm::ParameterSet const& iCon
     ttTrackGTTToken_ = consumes<L1TrackCollection>(L1TrackGTTInputTag);
     ttTrackSelectedToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedInputTag);
     ttTrackSelectedEmulationToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedEmulationInputTag);
+    ttTrackSelectedAssociatedToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedAssociatedInputTag);
+    ttTrackSelectedAssociatedEmulationToken_ =
+        consumes<L1TrackRefCollection>(L1TrackSelectedAssociatedEmulationInputTag);
+    ttTrackSelectedForJetsToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedForJetsInputTag);
+    ttTrackSelectedEmulationForJetsToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedEmulationForJetsInputTag);
+    ttTrackSelectedAssociatedForJetsToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedAssociatedForJetsInputTag);
+    ttTrackSelectedAssociatedEmulationForJetsToken_ =
+        consumes<L1TrackRefCollection>(L1TrackSelectedAssociatedEmulationForJetsInputTag);
+    ttTrackSelectedForEtMissToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedForEtMissInputTag);
+    ttTrackSelectedEmulationForEtMissToken_ = consumes<L1TrackRefCollection>(L1TrackSelectedEmulationForEtMissInputTag);
+    ttTrackSelectedAssociatedForEtMissToken_ =
+        consumes<L1TrackRefCollection>(L1TrackSelectedAssociatedForEtMissInputTag);
+    ttTrackSelectedAssociatedEmulationForEtMissToken_ =
+        consumes<L1TrackRefCollection>(L1TrackSelectedAssociatedEmulationForEtMissInputTag);
     TrackFastJetsToken_ = consumes<std::vector<l1t::TkJet>>(TrackFastJetsInputTag);
     TrackJetsToken_ = consumes<l1t::TkJetCollection>(TrackJetsInputTag);
     TrackJetsEmuToken_ = consumes<l1t::TkJetWordCollection>(TrackJetsEmuInputTag);
+    TrackTripletsToken_ = consumes<l1t::TkTripletCollection>(TrackTripletsInputTag);
     TrackMETToken_ = consumes<std::vector<l1t::TkEtMiss>>(TrackMETInputTag);
     TrackMETEmuToken_ = consumes<std::vector<l1t::EtSum>>(TrackMETEmuInputTag);
     TrackMHTToken_ = consumes<l1t::TkHTMissCollection>(TrackMHTInputTag);
@@ -527,6 +655,26 @@ L1TrackObjectNtupleMaker::L1TrackObjectNtupleMaker(edm::ParameterSet const& iCon
     L1TrackExtendedSelectedInputTag = iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedInputTag");
     L1TrackExtendedSelectedEmulationInputTag =
         iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedEmulationInputTag");
+    L1TrackExtendedSelectedAssociatedInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedAssociatedInputTag");
+    L1TrackExtendedSelectedAssociatedEmulationInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedAssociatedEmulationInputTag");
+    L1TrackExtendedSelectedForJetsInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedForJetsInputTag");
+    L1TrackExtendedSelectedEmulationForJetsInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedEmulationForJetsInputTag");
+    L1TrackExtendedSelectedAssociatedForJetsInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedAssociatedForJetsInputTag");
+    L1TrackExtendedSelectedAssociatedEmulationForJetsInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedAssociatedEmulationForJetsInputTag");
+    L1TrackExtendedSelectedForEtMissInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedForEtMissInputTag");
+    L1TrackExtendedSelectedEmulationForEtMissInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedEmulationForEtMissInputTag");
+    L1TrackExtendedSelectedAssociatedForEtMissInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedAssociatedForEtMissInputTag");
+    L1TrackExtendedSelectedAssociatedEmulationForEtMissInputTag =
+        iConfig.getParameter<edm::InputTag>("L1TrackExtendedSelectedAssociatedEmulationForEtMissInputTag");
     TrackFastJetsExtendedInputTag = iConfig.getParameter<InputTag>("TrackFastJetsExtendedInputTag");
     TrackJetsExtendedInputTag = iConfig.getParameter<InputTag>("TrackJetsExtendedInputTag");
     TrackJetsExtendedEmuInputTag = iConfig.getParameter<InputTag>("TrackJetsExtendedEmuInputTag");
@@ -541,6 +689,23 @@ L1TrackObjectNtupleMaker::L1TrackObjectNtupleMaker(edm::ParameterSet const& iCon
     ttTrackExtendedGTTToken_ = consumes<L1TrackCollection>(L1TrackExtendedGTTInputTag);
     ttTrackExtendedSelectedToken_ = consumes<L1TrackRefCollection>(L1TrackExtendedSelectedInputTag);
     ttTrackExtendedSelectedEmulationToken_ = consumes<L1TrackRefCollection>(L1TrackExtendedSelectedEmulationInputTag);
+    ttTrackExtendedSelectedAssociatedToken_ = consumes<L1TrackRefCollection>(L1TrackExtendedSelectedAssociatedInputTag);
+    ttTrackExtendedSelectedAssociatedEmulationToken_ =
+        consumes<L1TrackRefCollection>(L1TrackExtendedSelectedAssociatedEmulationInputTag);
+    ttTrackExtendedSelectedForJetsToken_ = consumes<L1TrackRefCollection>(L1TrackExtendedSelectedForJetsInputTag);
+    ttTrackExtendedSelectedEmulationForJetsToken_ =
+        consumes<L1TrackRefCollection>(L1TrackExtendedSelectedEmulationForJetsInputTag);
+    ttTrackExtendedSelectedAssociatedForJetsToken_ =
+        consumes<L1TrackRefCollection>(L1TrackExtendedSelectedAssociatedForJetsInputTag);
+    ttTrackExtendedSelectedAssociatedEmulationForJetsToken_ =
+        consumes<L1TrackRefCollection>(L1TrackExtendedSelectedAssociatedEmulationForJetsInputTag);
+    ttTrackExtendedSelectedForEtMissToken_ = consumes<L1TrackRefCollection>(L1TrackExtendedSelectedForEtMissInputTag);
+    ttTrackExtendedSelectedEmulationForEtMissToken_ =
+        consumes<L1TrackRefCollection>(L1TrackExtendedSelectedEmulationForEtMissInputTag);
+    ttTrackExtendedSelectedAssociatedForEtMissToken_ =
+        consumes<L1TrackRefCollection>(L1TrackExtendedSelectedAssociatedForEtMissInputTag);
+    ttTrackExtendedSelectedAssociatedEmulationForEtMissToken_ =
+        consumes<L1TrackRefCollection>(L1TrackExtendedSelectedAssociatedEmulationForEtMissInputTag);
     TrackFastJetsExtendedToken_ = consumes<std::vector<l1t::TkJet>>(TrackFastJetsExtendedInputTag);
     TrackJetsExtendedToken_ = consumes<l1t::TkJetCollection>(TrackJetsExtendedInputTag);
     TrackJetsExtendedEmuToken_ = consumes<l1t::TkJetWordCollection>(TrackJetsExtendedEmuInputTag);
@@ -574,6 +739,258 @@ L1TrackObjectNtupleMaker::~L1TrackObjectNtupleMaker() {}
 void L1TrackObjectNtupleMaker::endJob() {
   // things to be done at the exit of the event Loop
   //  edm::LogVerbatim("Tracklet") << "L1TrackObjectNtupleMaker::endJob";
+  // clean up raw pointers
+  delete m_trk_pt;
+  delete m_trk_eta;
+  delete m_trk_phi;
+  delete m_trk_phi_local;
+  delete m_trk_z0;
+  delete m_trk_d0;
+  delete m_trk_chi2;
+  delete m_trk_chi2dof;
+  delete m_trk_chi2rphi;
+  delete m_trk_chi2rz;
+  delete m_trk_bendchi2;
+  delete m_trk_MVA1;
+  delete m_trk_nstub;
+  delete m_trk_lhits;
+  delete m_trk_dhits;
+  delete m_trk_seed;
+  delete m_trk_hitpattern;
+  delete m_trk_phiSector;
+  delete m_trk_genuine;
+  delete m_trk_loose;
+  delete m_trk_unknown;
+  delete m_trk_combinatoric;
+  delete m_trk_fake;
+  delete m_trk_matchtp_pdgid;
+  delete m_trk_matchtp_mother_pdgid;
+
+  delete m_trk_matchtp_pt;
+  delete m_trk_matchtp_eta;
+  delete m_trk_matchtp_phi;
+  delete m_trk_matchtp_z0;
+  delete m_trk_matchtp_dxy;
+  delete m_trk_gtt_pt;
+  delete m_trk_gtt_eta;
+  delete m_trk_gtt_phi;
+  delete m_trk_selected_index;
+  delete m_trk_selected_emulation_index;
+  delete m_trk_selected_associated_index;
+  delete m_trk_selected_associated_emulation_index;
+  delete m_trk_selected_forjets_index;
+  delete m_trk_selected_emulation_forjets_index;
+  delete m_trk_selected_associated_forjets_index;
+  delete m_trk_selected_associated_emulation_forjets_index;
+  delete m_trk_selected_foretmiss_index;
+  delete m_trk_selected_emulation_foretmiss_index;
+  delete m_trk_selected_associated_foretmiss_index;
+  delete m_trk_selected_associated_emulation_foretmiss_index;
+
+  delete m_trkExt_pt;
+  delete m_trkExt_eta;
+  delete m_trkExt_phi;
+  delete m_trkExt_phi_local;
+  delete m_trkExt_z0;
+  delete m_trkExt_d0;
+  delete m_trkExt_chi2;
+  delete m_trkExt_chi2dof;
+  delete m_trkExt_chi2rphi;
+  delete m_trkExt_chi2rz;
+  delete m_trkExt_bendchi2;
+  delete m_trkExt_MVA;
+  delete m_trkExt_nstub;
+  delete m_trkExt_lhits;
+  delete m_trkExt_dhits;
+  delete m_trkExt_seed;
+  delete m_trkExt_hitpattern;
+  delete m_trkExt_phiSector;
+  delete m_trkExt_genuine;
+  delete m_trkExt_loose;
+  delete m_trkExt_unknown;
+  delete m_trkExt_combinatoric;
+  delete m_trkExt_fake;
+  delete m_trkExt_matchtp_pdgid;
+  delete m_trkExt_matchtp_pt;
+  delete m_trkExt_matchtp_eta;
+  delete m_trkExt_matchtp_phi;
+  delete m_trkExt_matchtp_z0;
+  delete m_trkExt_matchtp_dxy;
+  delete m_trkExt_gtt_pt;
+  delete m_trkExt_gtt_eta;
+  delete m_trkExt_gtt_phi;
+  delete m_trkExt_selected_index;
+  delete m_trkExt_selected_emulation_index;
+  delete m_trkExt_selected_associated_index;
+  delete m_trkExt_selected_associated_emulation_index;
+  delete m_trkExt_selected_forjets_index;
+  delete m_trkExt_selected_emulation_forjets_index;
+  delete m_trkExt_selected_associated_forjets_index;
+  delete m_trkExt_selected_associated_emulation_forjets_index;
+  delete m_trkExt_selected_foretmiss_index;
+  delete m_trkExt_selected_emulation_foretmiss_index;
+  delete m_trkExt_selected_associated_foretmiss_index;
+  delete m_trkExt_selected_associated_emulation_foretmiss_index;
+
+  delete m_tp_pt;
+  delete m_tp_eta;
+  delete m_tp_phi;
+  delete m_tp_dxy;
+  delete m_tp_d0;
+  delete m_tp_z0;
+  delete m_tp_d0_prod;
+  delete m_tp_z0_prod;
+  delete m_tp_pdgid;
+  delete m_tp_nmatch;
+  delete m_tp_nstub;
+  delete m_tp_eventid;
+  delete m_tp_charge;
+
+  delete m_gen_pt;
+  delete m_gen_phi;
+  delete m_gen_pdgid;
+  delete m_gen_mother_pdgid;
+
+  delete m_gen_z0;
+
+  delete m_matchtrk_pt;
+  delete m_matchtrk_eta;
+  delete m_matchtrk_phi;
+  delete m_matchtrk_z0;
+  delete m_matchtrk_d0;
+  delete m_matchtrk_chi2;
+  delete m_matchtrk_chi2dof;
+  delete m_matchtrk_chi2rphi;
+  delete m_matchtrk_chi2rz;
+  delete m_matchtrk_bendchi2;
+  delete m_matchtrk_MVA1;
+  delete m_matchtrk_nstub;
+  delete m_matchtrk_dhits;
+  delete m_matchtrk_lhits;
+  delete m_matchtrk_seed;
+  delete m_matchtrk_hitpattern;
+
+  delete m_matchtrkExt_pt;
+  delete m_matchtrkExt_eta;
+  delete m_matchtrkExt_phi;
+  delete m_matchtrkExt_z0;
+  delete m_matchtrkExt_d0;
+  delete m_matchtrkExt_chi2;
+  delete m_matchtrkExt_chi2dof;
+  delete m_matchtrkExt_chi2rphi;
+  delete m_matchtrkExt_chi2rz;
+  delete m_matchtrkExt_bendchi2;
+  delete m_matchtrkExt_MVA;
+  delete m_matchtrkExt_nstub;
+  delete m_matchtrkExt_dhits;
+  delete m_matchtrkExt_lhits;
+  delete m_matchtrkExt_seed;
+  delete m_matchtrkExt_hitpattern;
+
+  delete m_allstub_x;
+  delete m_allstub_y;
+  delete m_allstub_z;
+  delete m_allstub_isBarrel;
+  delete m_allstub_layer;
+  delete m_allstub_isPSmodule;
+  delete m_allstub_trigDisplace;
+  delete m_allstub_trigOffset;
+  delete m_allstub_trigPos;
+  delete m_allstub_trigBend;
+  delete m_allstub_matchTP_pdgid;
+  delete m_allstub_matchTP_pt;
+  delete m_allstub_matchTP_eta;
+  delete m_allstub_matchTP_phi;
+  delete m_allstub_genuine;
+
+  delete m_pv_L1reco;
+  delete m_pv_L1reco_sum;
+  delete m_pv_L1reco_emu;
+  delete m_pv_L1reco_sum_emu;
+  delete m_pv_MC;
+  delete m_MC_lep;
+
+  delete m_trkjet_eta;
+  delete m_trkjet_vz;
+  delete m_trkjet_phi;
+  delete m_trkjet_p;
+  delete m_trkjet_pt;
+  delete m_trkjet_ntracks;
+  delete m_trkjet_nDisplaced;
+  delete m_trkjet_nTight;
+  delete m_trkjet_nTightDisplaced;
+  delete m_trkjet_ntdtrk;
+
+  delete m_trkjetem_pt;
+  delete m_trkjetem_phi;
+  delete m_trkjetem_eta;
+  delete m_trkjetem_z;
+  delete m_trkjetem_ntracks;
+  delete m_trkjetem_nxtracks;
+
+  delete m_triplet_eta;
+  delete m_triplet_phi;
+  delete m_triplet_pt;
+  delete m_triplet_mass;
+  delete m_triplet_charge;
+  delete m_triplet_dmassmax;
+  delete m_triplet_dmassmin;
+  delete m_triplet_dzmax;
+  delete m_triplet_dzmin;
+  delete m_triplet_trk1pt;
+  delete m_triplet_trk1eta;
+  delete m_triplet_trk1phi;
+  delete m_triplet_trk1z;
+  delete m_triplet_trk1npar;
+  delete m_triplet_trk1mva;
+  delete m_triplet_trk2pt;
+  delete m_triplet_trk2eta;
+  delete m_triplet_trk2phi;
+  delete m_triplet_trk2z;
+  delete m_triplet_trk2npar;
+  delete m_triplet_trk2mva;
+  delete m_triplet_trk3pt;
+  delete m_triplet_trk3eta;
+  delete m_triplet_trk3phi;
+  delete m_triplet_trk3z;
+  delete m_triplet_trk3npar;
+  delete m_triplet_trk3mva;
+
+  delete m_trkfastjet_eta;
+  delete m_trkfastjet_vz;
+  delete m_trkfastjet_phi;
+  delete m_trkfastjet_p;
+  delete m_trkfastjet_pt;
+  delete m_trkfastjet_ntracks;
+  delete m_trkfastjet_tp_sumpt;
+  delete m_trkfastjet_truetp_sumpt;
+
+  delete m_trkjetExt_eta;
+  delete m_trkjetExt_vz;
+  delete m_trkjetExt_phi;
+  delete m_trkjetExt_p;
+  delete m_trkjetExt_pt;
+  delete m_trkjetExt_ntracks;
+  delete m_trkjetExt_nDisplaced;
+  delete m_trkjetExt_nTight;
+  delete m_trkjetExt_nTightDisplaced;
+  delete m_trkjetExt_ntdtrk;
+
+  delete m_trkjetemExt_pt;
+  delete m_trkjetemExt_phi;
+  delete m_trkjetemExt_eta;
+  delete m_trkjetemExt_z;
+  delete m_trkjetemExt_ntracks;
+  delete m_trkjetemExt_nxtracks;
+
+  delete m_trkfastjetExt_eta;
+  delete m_trkfastjetExt_vz;
+  delete m_trkfastjetExt_phi;
+  delete m_trkfastjetExt_p;
+  delete m_trkfastjetExt_pt;
+  delete m_trkfastjetExt_ntracks;
+  delete m_trkfastjetExt_tp_sumpt;
+  delete m_trkfastjetExt_truetp_sumpt;
 }
 
 ////////////
@@ -614,6 +1031,8 @@ void L1TrackObjectNtupleMaker::beginJob() {
   m_trk_combinatoric = new std::vector<int>;
   m_trk_fake = new std::vector<int>;
   m_trk_matchtp_pdgid = new std::vector<int>;
+  m_trk_matchtp_mother_pdgid = new std::vector<int>;
+
   m_trk_matchtp_pt = new std::vector<float>;
   m_trk_matchtp_eta = new std::vector<float>;
   m_trk_matchtp_phi = new std::vector<float>;
@@ -624,6 +1043,16 @@ void L1TrackObjectNtupleMaker::beginJob() {
   m_trk_gtt_phi = new std::vector<float>;
   m_trk_selected_index = new std::vector<int>;
   m_trk_selected_emulation_index = new std::vector<int>;
+  m_trk_selected_associated_index = new std::vector<int>;
+  m_trk_selected_associated_emulation_index = new std::vector<int>;
+  m_trk_selected_forjets_index = new std::vector<int>;
+  m_trk_selected_emulation_forjets_index = new std::vector<int>;
+  m_trk_selected_associated_forjets_index = new std::vector<int>;
+  m_trk_selected_associated_emulation_forjets_index = new std::vector<int>;
+  m_trk_selected_foretmiss_index = new std::vector<int>;
+  m_trk_selected_emulation_foretmiss_index = new std::vector<int>;
+  m_trk_selected_associated_foretmiss_index = new std::vector<int>;
+  m_trk_selected_associated_emulation_foretmiss_index = new std::vector<int>;
 
   m_trkExt_pt = new std::vector<float>;
   m_trkExt_eta = new std::vector<float>;
@@ -659,6 +1088,16 @@ void L1TrackObjectNtupleMaker::beginJob() {
   m_trkExt_gtt_phi = new std::vector<float>;
   m_trkExt_selected_index = new std::vector<int>;
   m_trkExt_selected_emulation_index = new std::vector<int>;
+  m_trkExt_selected_associated_index = new std::vector<int>;
+  m_trkExt_selected_associated_emulation_index = new std::vector<int>;
+  m_trkExt_selected_forjets_index = new std::vector<int>;
+  m_trkExt_selected_emulation_forjets_index = new std::vector<int>;
+  m_trkExt_selected_associated_forjets_index = new std::vector<int>;
+  m_trkExt_selected_associated_emulation_forjets_index = new std::vector<int>;
+  m_trkExt_selected_foretmiss_index = new std::vector<int>;
+  m_trkExt_selected_emulation_foretmiss_index = new std::vector<int>;
+  m_trkExt_selected_associated_foretmiss_index = new std::vector<int>;
+  m_trkExt_selected_associated_emulation_foretmiss_index = new std::vector<int>;
 
   m_tp_pt = new std::vector<float>;
   m_tp_eta = new std::vector<float>;
@@ -677,6 +1116,8 @@ void L1TrackObjectNtupleMaker::beginJob() {
   m_gen_pt = new std::vector<float>;
   m_gen_phi = new std::vector<float>;
   m_gen_pdgid = new std::vector<float>;
+  m_gen_mother_pdgid = new std::vector<float>;
+
   m_gen_z0 = new std::vector<float>;
 
   m_matchtrk_pt = new std::vector<float>;
@@ -746,6 +1187,34 @@ void L1TrackObjectNtupleMaker::beginJob() {
   m_trkjet_nTight = new std::vector<int>;
   m_trkjet_nTightDisplaced = new std::vector<int>;
   m_trkjet_ntdtrk = new std::vector<int>;
+
+  m_triplet_eta = new std::vector<float>;
+  m_triplet_phi = new std::vector<float>;
+  m_triplet_pt = new std::vector<float>;
+  m_triplet_mass = new std::vector<float>;
+  m_triplet_charge = new std::vector<float>;
+  m_triplet_dmassmax = new std::vector<float>;
+  m_triplet_dmassmin = new std::vector<float>;
+  m_triplet_dzmax = new std::vector<float>;
+  m_triplet_dzmin = new std::vector<float>;
+  m_triplet_trk1pt = new std::vector<float>;
+  m_triplet_trk1eta = new std::vector<float>;
+  m_triplet_trk1phi = new std::vector<float>;
+  m_triplet_trk1z = new std::vector<float>;
+  m_triplet_trk1npar = new std::vector<float>;
+  m_triplet_trk1mva = new std::vector<float>;
+  m_triplet_trk2pt = new std::vector<float>;
+  m_triplet_trk2eta = new std::vector<float>;
+  m_triplet_trk2phi = new std::vector<float>;
+  m_triplet_trk2z = new std::vector<float>;
+  m_triplet_trk2npar = new std::vector<float>;
+  m_triplet_trk2mva = new std::vector<float>;
+  m_triplet_trk3pt = new std::vector<float>;
+  m_triplet_trk3eta = new std::vector<float>;
+  m_triplet_trk3phi = new std::vector<float>;
+  m_triplet_trk3z = new std::vector<float>;
+  m_triplet_trk3npar = new std::vector<float>;
+  m_triplet_trk3mva = new std::vector<float>;
 
   m_trkjetem_pt = new std::vector<float>;
   m_trkjetem_phi = new std::vector<float>;
@@ -817,6 +1286,8 @@ void L1TrackObjectNtupleMaker::beginJob() {
     eventTree->Branch("trk_combinatoric", &m_trk_combinatoric);
     eventTree->Branch("trk_fake", &m_trk_fake);
     eventTree->Branch("trk_matchtp_pdgid", &m_trk_matchtp_pdgid);
+    eventTree->Branch("trk_matchtp_mother_pdgid", &m_trk_matchtp_mother_pdgid);
+
     eventTree->Branch("trk_matchtp_pt", &m_trk_matchtp_pt);
     eventTree->Branch("trk_matchtp_eta", &m_trk_matchtp_eta);
     eventTree->Branch("trk_matchtp_phi", &m_trk_matchtp_phi);
@@ -827,6 +1298,18 @@ void L1TrackObjectNtupleMaker::beginJob() {
     eventTree->Branch("trk_gtt_phi", &m_trk_gtt_phi);
     eventTree->Branch("trk_gtt_selected_index", &m_trk_selected_index);
     eventTree->Branch("trk_gtt_selected_emulation_index", &m_trk_selected_emulation_index);
+    eventTree->Branch("trk_gtt_selected_associated_index", &m_trk_selected_associated_index);
+    eventTree->Branch("trk_gtt_selected_associated_emulation_index", &m_trk_selected_associated_emulation_index);
+    eventTree->Branch("trk_gtt_selected_forjets_index", &m_trk_selected_forjets_index);
+    eventTree->Branch("trk_gtt_selected_emulation_forjets_index", &m_trk_selected_emulation_forjets_index);
+    eventTree->Branch("trk_gtt_selected_associated_forjets_index", &m_trk_selected_associated_forjets_index);
+    eventTree->Branch("trk_gtt_selected_associated_emulation_forjets_index",
+                      &m_trk_selected_associated_emulation_forjets_index);
+    eventTree->Branch("trk_gtt_selected_foretmiss_index", &m_trk_selected_foretmiss_index);
+    eventTree->Branch("trk_gtt_selected_emulation_foretmiss_index", &m_trk_selected_emulation_foretmiss_index);
+    eventTree->Branch("trk_gtt_selected_associated_foretmiss_index", &m_trk_selected_associated_foretmiss_index);
+    eventTree->Branch("trk_gtt_selected_associated_emulation_foretmiss_index",
+                      &m_trk_selected_associated_emulation_foretmiss_index);
   }
 
   if (SaveAllTracks && (Displaced == "Displaced" || Displaced == "Both")) {
@@ -864,6 +1347,18 @@ void L1TrackObjectNtupleMaker::beginJob() {
     eventTree->Branch("trkExt_gtt_phi", &m_trkExt_gtt_phi);
     eventTree->Branch("trkExt_gtt_selected_index", &m_trkExt_selected_index);
     eventTree->Branch("trkExt_gtt_selected_emulation_index", &m_trkExt_selected_emulation_index);
+    eventTree->Branch("trkExt_gtt_selected_associated_index", &m_trkExt_selected_associated_index);
+    eventTree->Branch("trkExt_gtt_selected_associated_emulation_index", &m_trkExt_selected_associated_emulation_index);
+    eventTree->Branch("trkExt_gtt_selected_forjets_index", &m_trkExt_selected_forjets_index);
+    eventTree->Branch("trkExt_gtt_selected_emulation_forjets_index", &m_trkExt_selected_emulation_forjets_index);
+    eventTree->Branch("trkExt_gtt_selected_associated_forjets_index", &m_trkExt_selected_associated_forjets_index);
+    eventTree->Branch("trkExt_gtt_selected_associated_emulation_forjets_index",
+                      &m_trkExt_selected_associated_emulation_forjets_index);
+    eventTree->Branch("trkExt_gtt_selected_foretmiss_index", &m_trkExt_selected_foretmiss_index);
+    eventTree->Branch("trkExt_gtt_selected_emulation_foretmiss_index", &m_trkExt_selected_emulation_foretmiss_index);
+    eventTree->Branch("trkExt_gtt_selected_associated_foretmiss_index", &m_trkExt_selected_associated_foretmiss_index);
+    eventTree->Branch("trkExt_gtt_selected_associated_emulation_foretmiss_index",
+                      &m_trkExt_selected_associated_emulation_foretmiss_index);
   }
   eventTree->Branch("tp_pt", &m_tp_pt);
   eventTree->Branch("tp_eta", &m_tp_eta);
@@ -944,6 +1439,8 @@ void L1TrackObjectNtupleMaker::beginJob() {
   eventTree->Branch("gen_pt", &m_gen_pt);
   eventTree->Branch("gen_phi", &m_gen_phi);
   eventTree->Branch("gen_pdgid", &m_gen_pdgid);
+  eventTree->Branch("gen_mother_pdgid", &m_gen_mother_pdgid);
+
   eventTree->Branch("gen_z0", &m_gen_z0);
 
   if (SaveTrackJets) {
@@ -973,6 +1470,34 @@ void L1TrackObjectNtupleMaker::beginJob() {
       eventTree->Branch("trkjetem_ntracks", &m_trkjetem_ntracks);
       eventTree->Branch("trkjetem_nxtracks", &m_trkjetem_nxtracks);
     }
+    eventTree->Branch("triplet_eta", &m_triplet_eta);
+    eventTree->Branch("triplet_pt", &m_triplet_pt);
+    eventTree->Branch("triplet_phi", &m_triplet_phi);
+    eventTree->Branch("triplet_mass", &m_triplet_mass);
+    eventTree->Branch("triplet_charge", &m_triplet_charge);
+    eventTree->Branch("triplet_dmassmax", &m_triplet_dmassmax);
+    eventTree->Branch("triplet_dmassmin", &m_triplet_dmassmin);
+    eventTree->Branch("triplet_dzmax", &m_triplet_dzmax);
+    eventTree->Branch("triplet_dzmin", &m_triplet_dzmin);
+    eventTree->Branch("triplet_trk1pt", &m_triplet_trk1pt);
+    eventTree->Branch("triplet_trk1eta", &m_triplet_trk1eta);
+    eventTree->Branch("triplet_trk1phi", &m_triplet_trk1phi);
+    eventTree->Branch("triplet_trk1z", &m_triplet_trk1z);
+    eventTree->Branch("triplet_trk1npar", &m_triplet_trk1npar);
+    eventTree->Branch("triplet_trk1mva", &m_triplet_trk1mva);
+    eventTree->Branch("triplet_trk2pt", &m_triplet_trk2pt);
+    eventTree->Branch("triplet_trk2eta", &m_triplet_trk2eta);
+    eventTree->Branch("triplet_trk2phi", &m_triplet_trk2phi);
+    eventTree->Branch("triplet_trk2z", &m_triplet_trk2z);
+    eventTree->Branch("triplet_trk2npar", &m_triplet_trk2npar);
+    eventTree->Branch("triplet_trk2mva", &m_triplet_trk2mva);
+    eventTree->Branch("triplet_trk3pt", &m_triplet_trk3pt);
+    eventTree->Branch("triplet_trk3eta", &m_triplet_trk3eta);
+    eventTree->Branch("triplet_trk3phi", &m_triplet_trk3phi);
+    eventTree->Branch("triplet_trk3z", &m_triplet_trk3z);
+    eventTree->Branch("triplet_trk3npar", &m_triplet_trk3npar);
+    eventTree->Branch("triplet_trk3mva", &m_triplet_trk3mva);
+
     if (Displaced == "Displaced" || Displaced == "Both") {
       eventTree->Branch("trkfastjetExt_eta", &m_trkfastjetExt_eta);
       eventTree->Branch("trkfastjetExt_vz", &m_trkfastjetExt_vz);
@@ -1066,6 +1591,8 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
     m_trk_combinatoric->clear();
     m_trk_fake->clear();
     m_trk_matchtp_pdgid->clear();
+    m_trk_matchtp_mother_pdgid->clear();
+
     m_trk_matchtp_pt->clear();
     m_trk_matchtp_eta->clear();
     m_trk_matchtp_phi->clear();
@@ -1076,6 +1603,16 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
     m_trk_gtt_phi->clear();
     m_trk_selected_index->clear();
     m_trk_selected_emulation_index->clear();
+    m_trk_selected_associated_index->clear();
+    m_trk_selected_associated_emulation_index->clear();
+    m_trk_selected_forjets_index->clear();
+    m_trk_selected_emulation_forjets_index->clear();
+    m_trk_selected_associated_forjets_index->clear();
+    m_trk_selected_associated_emulation_forjets_index->clear();
+    m_trk_selected_foretmiss_index->clear();
+    m_trk_selected_emulation_foretmiss_index->clear();
+    m_trk_selected_associated_foretmiss_index->clear();
+    m_trk_selected_associated_emulation_foretmiss_index->clear();
   }
   if (SaveAllTracks && (Displaced == "Displaced" || Displaced == "Both")) {
     m_trkExt_pt->clear();
@@ -1112,6 +1649,16 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
     m_trkExt_gtt_phi->clear();
     m_trkExt_selected_index->clear();
     m_trkExt_selected_emulation_index->clear();
+    m_trkExt_selected_associated_index->clear();
+    m_trkExt_selected_associated_emulation_index->clear();
+    m_trkExt_selected_forjets_index->clear();
+    m_trkExt_selected_emulation_forjets_index->clear();
+    m_trkExt_selected_associated_forjets_index->clear();
+    m_trkExt_selected_associated_emulation_forjets_index->clear();
+    m_trkExt_selected_foretmiss_index->clear();
+    m_trkExt_selected_emulation_foretmiss_index->clear();
+    m_trkExt_selected_associated_foretmiss_index->clear();
+    m_trkExt_selected_associated_emulation_foretmiss_index->clear();
   }
   m_tp_pt->clear();
   m_tp_eta->clear();
@@ -1130,6 +1677,8 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
   m_gen_pt->clear();
   m_gen_phi->clear();
   m_gen_pdgid->clear();
+  m_gen_mother_pdgid->clear();
+
   m_gen_z0->clear();
 
   if (Displaced == "Prompt" || Displaced == "Both") {
@@ -1215,6 +1764,34 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
       m_trkjetem_ntracks->clear();
       m_trkjetem_nxtracks->clear();
     }
+    m_triplet_eta->clear();
+    m_triplet_pt->clear();
+    m_triplet_phi->clear();
+    m_triplet_mass->clear();
+    m_triplet_charge->clear();
+    m_triplet_dmassmax->clear();
+    m_triplet_dmassmin->clear();
+    m_triplet_dzmax->clear();
+    m_triplet_dzmin->clear();
+    m_triplet_trk1pt->clear();
+    m_triplet_trk1eta->clear();
+    m_triplet_trk1phi->clear();
+    m_triplet_trk1z->clear();
+    m_triplet_trk1npar->clear();
+    m_triplet_trk1mva->clear();
+    m_triplet_trk2pt->clear();
+    m_triplet_trk2eta->clear();
+    m_triplet_trk2phi->clear();
+    m_triplet_trk2z->clear();
+    m_triplet_trk2npar->clear();
+    m_triplet_trk2mva->clear();
+    m_triplet_trk3pt->clear();
+    m_triplet_trk3eta->clear();
+    m_triplet_trk3phi->clear();
+    m_triplet_trk3z->clear();
+    m_triplet_trk3npar->clear();
+    m_triplet_trk3mva->clear();
+
     if (Displaced == "Displaced" || Displaced == "Both") {
       m_trkjetExt_eta->clear();
       m_trkjetExt_pt->clear();
@@ -1241,14 +1818,14 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
       m_trkjetemExt_ntracks->clear();
       m_trkjetemExt_nxtracks->clear();
     }
-
-    m_pv_L1reco->clear();
-    m_pv_L1reco_sum->clear();
-    m_pv_L1reco_emu->clear();
-    m_pv_L1reco_sum_emu->clear();
-    m_pv_MC->clear();
-    m_MC_lep->clear();
   }
+
+  m_pv_L1reco->clear();
+  m_pv_L1reco_sum->clear();
+  m_pv_L1reco_emu->clear();
+  m_pv_L1reco_sum_emu->clear();
+  m_pv_MC->clear();
+  m_MC_lep->clear();
 
   // -----------------------------------------------------------------------------------------------
   // retrieve various containers
@@ -1298,6 +1875,8 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
   edm::Handle<l1t::TkJetWordCollection> TrackJetsExtendedEmuHandle;
   std::vector<l1t::TkJet>::const_iterator jetIter;
   std::vector<l1t::TkJetWord>::const_iterator jetemIter;
+  edm::Handle<l1t::TkTripletCollection> TrackTripletsHandle;
+  std::vector<l1t::TkTriplet>::const_iterator tripletIter;
 
   // Track Sums
   edm::Handle<std::vector<l1t::TkEtMiss>> L1TkMETHandle;
@@ -1317,14 +1896,35 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
   edm::Handle<L1TrackCollection> TTTrackExtendedGTTHandle;
   edm::Handle<L1TrackRefCollection> TTTrackSelectedHandle;
   edm::Handle<L1TrackRefCollection> TTTrackSelectedEmulationHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedAssociatedHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedAssociatedEmulationHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedEmulationForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedAssociatedForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedAssociatedEmulationForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedForEtMissHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedEmulationForEtMissHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedAssociatedForEtMissHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackSelectedAssociatedEmulationForEtMissHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedAssociatedHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedAssociatedEmulationHandle;
   edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedHandle;
   edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedEmulationHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedAssociatedForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedAssociatedEmulationForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedEmulationForJetsHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedAssociatedForEtMissHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedAssociatedEmulationForEtMissHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedForEtMissHandle;
+  edm::Handle<L1TrackRefCollection> TTTrackExtendedSelectedEmulationForEtMissHandle;
   L1TrackCollection::const_iterator iterL1Track;
 
   if (Displaced == "Prompt" || Displaced == "Both") {
     iEvent.getByToken(TrackFastJetsToken_, TrackFastJetsHandle);
     iEvent.getByToken(TrackJetsToken_, TrackJetsHandle);
     iEvent.getByToken(TrackJetsEmuToken_, TrackJetsEmuHandle);
+    iEvent.getByToken(TrackTripletsToken_, TrackTripletsHandle);
     iEvent.getByToken(TrackMETToken_, L1TkMETHandle);
     iEvent.getByToken(TrackMETEmuToken_, L1TkMETEmuHandle);
     iEvent.getByToken(TrackMHTToken_, L1TkMHTHandle);
@@ -1334,6 +1934,17 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
     iEvent.getByToken(ttTrackGTTToken_, TTTrackGTTHandle);
     iEvent.getByToken(ttTrackSelectedToken_, TTTrackSelectedHandle);
     iEvent.getByToken(ttTrackSelectedEmulationToken_, TTTrackSelectedEmulationHandle);
+    iEvent.getByToken(ttTrackSelectedAssociatedToken_, TTTrackSelectedAssociatedHandle);
+    iEvent.getByToken(ttTrackSelectedAssociatedEmulationToken_, TTTrackSelectedAssociatedEmulationHandle);
+    iEvent.getByToken(ttTrackSelectedForJetsToken_, TTTrackSelectedForJetsHandle);
+    iEvent.getByToken(ttTrackSelectedEmulationForJetsToken_, TTTrackSelectedEmulationForJetsHandle);
+    iEvent.getByToken(ttTrackSelectedAssociatedForJetsToken_, TTTrackSelectedAssociatedForJetsHandle);
+    iEvent.getByToken(ttTrackSelectedAssociatedEmulationForJetsToken_, TTTrackSelectedAssociatedEmulationForJetsHandle);
+    iEvent.getByToken(ttTrackSelectedForEtMissToken_, TTTrackSelectedForEtMissHandle);
+    iEvent.getByToken(ttTrackSelectedEmulationForEtMissToken_, TTTrackSelectedEmulationForEtMissHandle);
+    iEvent.getByToken(ttTrackSelectedAssociatedForEtMissToken_, TTTrackSelectedAssociatedForEtMissHandle);
+    iEvent.getByToken(ttTrackSelectedAssociatedEmulationForEtMissToken_,
+                      TTTrackSelectedAssociatedEmulationForEtMissHandle);
   }
   if (Displaced == "Displaced" || Displaced == "Both") {
     iEvent.getByToken(TrackFastJetsExtendedToken_, TrackFastJetsExtendedHandle);
@@ -1347,6 +1958,20 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
     iEvent.getByToken(ttTrackExtendedGTTToken_, TTTrackExtendedGTTHandle);
     iEvent.getByToken(ttTrackExtendedSelectedToken_, TTTrackExtendedSelectedHandle);
     iEvent.getByToken(ttTrackExtendedSelectedEmulationToken_, TTTrackExtendedSelectedEmulationHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedAssociatedToken_, TTTrackExtendedSelectedAssociatedHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedAssociatedEmulationToken_,
+                      TTTrackExtendedSelectedAssociatedEmulationHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedForJetsToken_, TTTrackExtendedSelectedForJetsHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedEmulationForJetsToken_, TTTrackExtendedSelectedEmulationForJetsHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedAssociatedForJetsToken_, TTTrackExtendedSelectedAssociatedForJetsHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedAssociatedEmulationForJetsToken_,
+                      TTTrackExtendedSelectedAssociatedEmulationForJetsHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedForEtMissToken_, TTTrackExtendedSelectedForEtMissHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedEmulationForEtMissToken_, TTTrackExtendedSelectedEmulationForEtMissHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedAssociatedForEtMissToken_,
+                      TTTrackExtendedSelectedAssociatedForEtMissHandle);
+    iEvent.getByToken(ttTrackExtendedSelectedAssociatedEmulationForEtMissToken_,
+                      TTTrackExtendedSelectedAssociatedEmulationForEtMissHandle);
   }
 
   //Loop over gen particles
@@ -1374,6 +1999,12 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
       m_gen_pt->push_back(genpartIter->pt());
       m_gen_phi->push_back(genpartIter->phi());
       m_gen_pdgid->push_back(genpartIter->pdgId());
+      if (genpartIter->numberOfMothers() > 0) {
+        m_gen_mother_pdgid->push_back(genpartIter->mother(0)->pdgId());
+      } else {
+        m_gen_mother_pdgid->push_back(-999);
+      }
+
       m_gen_z0->push_back(zvtx_gen);
     }
 
@@ -1493,7 +2124,6 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
     for (iterL1Track = TTTrackHandle->begin(); iterL1Track != TTTrackHandle->end(); iterL1Track++) {
       L1TrackPtr l1track_ptr(TTTrackHandle, this_l1track);
       L1TrackRef l1track_ref(TTTrackGTTHandle, this_l1track);
-      this_l1track++;
 
       float tmp_trk_pt = iterL1Track->momentum().perp();
       float tmp_trk_eta = iterL1Track->momentum().eta();
@@ -1621,6 +2251,8 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
 
       int myFake = 0;
       int myTP_pdgid = -999;
+      int myTP_mother_pdgid = -999;
+
       float myTP_pt = -999;
       float myTP_eta = -999;
       float myTP_phi = -999;
@@ -1637,6 +2269,9 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
           myFake = 1;
 
         myTP_pdgid = my_tp->pdgId();
+        if (my_tp->genParticles().size() > 0) {
+          myTP_mother_pdgid = my_tp->genParticles().at(0)->mother(0)->pdgId();
+        }
         myTP_pt = my_tp->p4().pt();
         myTP_eta = my_tp->p4().eta();
         myTP_phi = my_tp->p4().phi();
@@ -1656,6 +2291,8 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
 
       m_trk_fake->push_back(myFake);
       m_trk_matchtp_pdgid->push_back(myTP_pdgid);
+      m_trk_matchtp_mother_pdgid->push_back(myTP_mother_pdgid);
+
       m_trk_matchtp_pt->push_back(myTP_pt);
       m_trk_matchtp_eta->push_back(myTP_eta);
       m_trk_matchtp_phi->push_back(myTP_phi);
@@ -1668,8 +2305,32 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
       m_trk_gtt_pt->push_back(l1track_ref->momentum().perp());
       m_trk_gtt_eta->push_back(l1track_ref->momentum().eta());
       m_trk_gtt_phi->push_back(l1track_ref->momentum().phi());
-      m_trk_selected_index->push_back(getSelectedTrackIndex(l1track_ref, TTTrackSelectedHandle));
-      m_trk_selected_emulation_index->push_back(getSelectedTrackIndex(l1track_ref, TTTrackSelectedEmulationHandle));
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedHandle) >= 0)
+        m_trk_selected_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedEmulationHandle) >= 0)
+        m_trk_selected_emulation_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedAssociatedHandle) >= 0)
+        m_trk_selected_associated_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedAssociatedEmulationHandle) >= 0)
+        m_trk_selected_associated_emulation_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedForJetsHandle) >= 0)
+        m_trk_selected_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedEmulationForJetsHandle) >= 0)
+        m_trk_selected_emulation_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedAssociatedForJetsHandle) >= 0)
+        m_trk_selected_associated_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedAssociatedEmulationForJetsHandle) >= 0)
+        m_trk_selected_associated_emulation_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedForEtMissHandle) >= 0)
+        m_trk_selected_foretmiss_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedEmulationForEtMissHandle) >= 0)
+        m_trk_selected_emulation_foretmiss_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedAssociatedForEtMissHandle) >= 0)
+        m_trk_selected_associated_foretmiss_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackSelectedAssociatedEmulationForEtMissHandle) >= 0)
+        m_trk_selected_associated_emulation_foretmiss_index->push_back(this_l1track);
+
+      this_l1track++;
     }  //end track loop
   }    //end if SaveAllTracks
 
@@ -1686,7 +2347,6 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
     for (iterL1Track = TTTrackExtendedHandle->begin(); iterL1Track != TTTrackExtendedHandle->end(); iterL1Track++) {
       L1TrackPtr l1track_ptr(TTTrackExtendedHandle, this_l1track);
       L1TrackRef l1track_ref(TTTrackExtendedGTTHandle, this_l1track);
-      this_l1track++;
 
       float tmp_trk_pt = iterL1Track->momentum().perp();
       float tmp_trk_eta = iterL1Track->momentum().eta();
@@ -1862,8 +2522,29 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
       m_trkExt_gtt_eta->push_back(l1track_ref->momentum().eta());
       m_trkExt_gtt_phi->push_back(l1track_ref->momentum().phi());
       m_trkExt_selected_index->push_back(getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedHandle));
-      m_trkExt_selected_emulation_index->push_back(
-          getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedEmulationHandle));
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedEmulationHandle) >= 0)
+        m_trkExt_selected_emulation_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedAssociatedHandle) >= 0)
+        m_trkExt_selected_associated_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedAssociatedEmulationHandle) >= 0)
+        m_trkExt_selected_associated_emulation_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedForJetsHandle) >= 0)
+        m_trkExt_selected_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedEmulationForJetsHandle) >= 0)
+        m_trkExt_selected_emulation_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedAssociatedForJetsHandle) >= 0)
+        m_trkExt_selected_associated_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedAssociatedEmulationForJetsHandle) >= 0)
+        m_trkExt_selected_associated_emulation_forjets_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedForEtMissHandle) >= 0)
+        m_trkExt_selected_foretmiss_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedEmulationForEtMissHandle) >= 0)
+        m_trkExt_selected_emulation_foretmiss_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedAssociatedForEtMissHandle) >= 0)
+        m_trkExt_selected_associated_foretmiss_index->push_back(this_l1track);
+      if (getSelectedTrackIndex(l1track_ref, TTTrackExtendedSelectedAssociatedEmulationForEtMissHandle) >= 0)
+        m_trkExt_selected_associated_emulation_foretmiss_index->push_back(this_l1track);
+      this_l1track++;
     }  //end track loop
   }    //end if SaveAllTracks (displaced)
 
@@ -2484,6 +3165,35 @@ void L1TrackObjectNtupleMaker::analyze(const edm::Event& iEvent, const edm::Even
         m_trkjet_nTight->push_back(jetIter->nTighttracks());
         m_trkjet_nTightDisplaced->push_back(jetIter->nTightDisptracks());
       }
+    }
+    for (tripletIter = TrackTripletsHandle->begin(); tripletIter != TrackTripletsHandle->end(); ++tripletIter) {
+      m_triplet_phi->push_back(tripletIter->phi());
+      m_triplet_eta->push_back(tripletIter->eta());
+      m_triplet_pt->push_back(tripletIter->pt());
+      m_triplet_mass->push_back(tripletIter->mass());
+      m_triplet_charge->push_back(tripletIter->getTripletCharge());
+      m_triplet_dmassmax->push_back(tripletIter->getPairMassMax());
+      m_triplet_dmassmin->push_back(tripletIter->getPairMassMin());
+      m_triplet_dzmax->push_back(tripletIter->getPairDzMax());
+      m_triplet_dzmin->push_back(tripletIter->getPairDzMin());
+      m_triplet_trk1pt->push_back(tripletIter->trkPtr(0)->momentum().perp());
+      m_triplet_trk1eta->push_back(tripletIter->trkPtr(0)->momentum().eta());
+      m_triplet_trk1phi->push_back(tripletIter->trkPtr(0)->momentum().phi());
+      m_triplet_trk1z->push_back(tripletIter->trkPtr(0)->z0());
+      m_triplet_trk1npar->push_back(tripletIter->trkPtr(0)->nFitPars());
+      m_triplet_trk1mva->push_back(tripletIter->trkPtr(0)->trkMVA1());
+      m_triplet_trk2pt->push_back(tripletIter->trkPtr(1)->momentum().perp());
+      m_triplet_trk2eta->push_back(tripletIter->trkPtr(1)->momentum().eta());
+      m_triplet_trk2phi->push_back(tripletIter->trkPtr(1)->momentum().phi());
+      m_triplet_trk2z->push_back(tripletIter->trkPtr(1)->z0());
+      m_triplet_trk2npar->push_back(tripletIter->trkPtr(1)->nFitPars());
+      m_triplet_trk2mva->push_back(tripletIter->trkPtr(1)->trkMVA1());
+      m_triplet_trk3pt->push_back(tripletIter->trkPtr(2)->momentum().perp());
+      m_triplet_trk3eta->push_back(tripletIter->trkPtr(2)->momentum().eta());
+      m_triplet_trk3phi->push_back(tripletIter->trkPtr(2)->momentum().phi());
+      m_triplet_trk3z->push_back(tripletIter->trkPtr(2)->z0());
+      m_triplet_trk3npar->push_back(tripletIter->trkPtr(2)->nFitPars());
+      m_triplet_trk3mva->push_back(tripletIter->trkPtr(2)->trkMVA1());
     }
     if (TrackJetsExtendedHandle.isValid() && (Displaced == "Displaced" || Displaced == "Both")) {
       for (jetIter = TrackJetsExtendedHandle->begin(); jetIter != TrackJetsExtendedHandle->end(); ++jetIter) {

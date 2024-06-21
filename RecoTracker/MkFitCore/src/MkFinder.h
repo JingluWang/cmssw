@@ -24,16 +24,15 @@ namespace mkfit {
   class IterationLayerConfig;
   class SteeringParams;
 
-#if defined(DUMPHITWINDOW) or defined(DEBUG_BACKWARD_FIT)
   class Event;
-#endif
 
   struct UpdateIndices {
     int seed_idx;
     int cand_idx;
     int hit_idx;
+    int ovlp_idx;
 
-    UpdateIndices(int si, int ci, int hi) : seed_idx(si), cand_idx(ci), hit_idx(hi) {}
+    UpdateIndices(int si, int ci, int hi, int oi) : seed_idx(si), cand_idx(ci), hit_idx(hi), ovlp_idx(oi) {}
   };
 
   class MkFinder : public MkBase {
@@ -50,12 +49,19 @@ namespace mkfit {
     MkFinder() {}
 
     void setup(const PropagationConfig &pc,
+               const IterationConfig &ic,
                const IterationParams &ip,
                const IterationLayerConfig &ilc,
                const SteeringParams &sp,
-               const std::vector<bool> *ihm);
-    void setup_bkfit(const PropagationConfig &pc, const SteeringParams &sp);
+               const std::vector<bool> *ihm,
+               const Event *ev,
+               int region,
+               bool infwd);
+    void setup_bkfit(const PropagationConfig &pc, const SteeringParams &sp, const Event *ev);
     void release();
+
+    void begin_layer(const LayerOfHits &layer_of_hits);
+    void end_layer();
 
     //----------------------------------------------------------------------------
 
@@ -80,6 +86,7 @@ namespace mkfit {
                             int beg,
                             int end,
                             bool inputProp);
+    void inputOverlapHits(const LayerOfHits &layer_of_hits, const std::vector<UpdateIndices> &idxs, int beg, int end);
 
     void inputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
                               const std::vector<std::pair<int, IdxChi2List>> &idxs,
@@ -108,6 +115,8 @@ namespace mkfit {
 
     HitOnTrack bestHitLastHoT(int itrack) const { return m_HoTArrs[itrack][m_NHits(itrack, 0, 0) - 1]; }
 
+    void packModuleNormDir(const LayerOfHits &layer_of_hits, int hit_cnt, MPlexHV &norm, MPlexHV &dir, int N_proc) const;
+
     //----------------------------------------------------------------------------
 
     void getHitSelDynamicWindows(
@@ -115,7 +124,8 @@ namespace mkfit {
 
     float getHitSelDynamicChi2Cut(const int itrk, const int ipar);
 
-    void selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc);
+    void selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only = false);
+    void selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc);
 
     void addBestHit(const LayerOfHits &layer_of_hits, const int N_proc, const FindingFoos &fnd_foos);
 
@@ -135,7 +145,9 @@ namespace mkfit {
                                    const int N_proc,
                                    const FindingFoos &fnd_foos);
 
-    void updateWithLoadedHit(int N_proc, const FindingFoos &fnd_foos);
+    void updateWithLoadedHit(int N_proc, const LayerOfHits &layer_of_hits, const FindingFoos &fnd_foos);
+
+    void chi2OfLoadedHit(int N_proc, const FindingFoos &fnd_foos);
 
     void copyOutParErr(std::vector<CombCandidate> &seed_cand_vec, int N_proc, bool outputProp) const;
 
@@ -272,6 +284,8 @@ namespace mkfit {
 
     int num_inside_minus_one_hits(const int mslot) const { return m_NInsideMinusOneHits(mslot, 0, 0); }
 
+    void print_par_err(int corp, int mslot) const;
+
     //----------------------------------------------------------------------------
 
     MPlexQF m_Chi2;
@@ -282,14 +296,9 @@ namespace mkfit {
 
     HitOnTrack m_HoTArrs[NN][Config::nMaxTrkHits];
 
-#if defined(DUMPHITWINDOW) or defined(DEBUG_BACKWARD_FIT)
-    MPlexQI m_SeedAlgo;   // seed algorithm
-    MPlexQI m_SeedLabel;  // seed label
-    Event *m_event;
-#endif
-
-    MPlexQI m_SeedIdx;  // seed index in local thread (for bookkeeping at thread level)
-    MPlexQI m_CandIdx;  // candidate index for the given seed (for bookkeeping of clone engine)
+    MPlexQI m_SeedIdx;        // seed index in local thread (for bookkeeping at thread level)
+    MPlexQI m_CandIdx;        // candidate index for the given seed (for bookkeeping of clone engine)
+    MPlexQI m_SeedOriginIdx;  // seed index in MkBuilder seed input vector
 
     MPlexQI m_Stopped;  // Flag for BestHit that a track has been stopped (and copied out already)
 
@@ -314,8 +323,8 @@ namespace mkfit {
     MPlexHitIdx m_XHitArr;
 
     // Hit errors / parameters for hit matching, update.
-    MPlexHS m_msErr;
-    MPlexHV m_msPar;
+    MPlexHS m_msErr{0.0f};
+    MPlexHV m_msPar{0.0f};
 
     // An idea: Do propagation to hit in FindTracksXYZZ functions.
     // Have some state / functions here that make this short to write.
@@ -325,10 +334,14 @@ namespace mkfit {
     // MPlexLV    candParAtCurrHit;
 
     const PropagationConfig *m_prop_config = nullptr;
+    const IterationConfig *m_iteration_config = nullptr;
     const IterationParams *m_iteration_params = nullptr;
     const IterationLayerConfig *m_iteration_layer_config = nullptr;
     const SteeringParams *m_steering_params = nullptr;
     const std::vector<bool> *m_iteration_hit_mask = nullptr;
+    const Event *m_event = nullptr;
+    int m_current_region = -1;
+    bool m_in_fwd = true;
 
     // Backward fit
     int m_CurHit[NN];

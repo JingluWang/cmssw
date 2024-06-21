@@ -12,7 +12,8 @@
 
 #include "PixelRecHitGPUKernel.h"
 #include "gpuPixelRecHits.h"
-// #define GPU_DEBUG
+
+//#define GPU_DEBUG
 
 namespace {
   template <typename TrackerTraits>
@@ -76,7 +77,7 @@ namespace pixelgpudetails {
             <<<1, 32, 0, stream>>>(clusters_d->clusModuleStart(), cpeParams, hits_d.view().hitsLayerStart().data());
         cudaCheck(cudaGetLastError());
         constexpr auto nLayers = TrackerTraits::numberOfLayers;
-        cms::cuda::fillManyFromVector(hits_d.phiBinner(),
+        cms::cuda::fillManyFromVector(&(hits_d.view().phiBinner()),
                                       nLayers,
                                       hits_d.view().iphi(),
                                       hits_d.view().hitsLayerStart().data(),
@@ -102,4 +103,5 @@ namespace pixelgpudetails {
 
   template class PixelRecHitGPUKernel<pixelTopology::Phase1>;
   template class PixelRecHitGPUKernel<pixelTopology::Phase2>;
+  template class PixelRecHitGPUKernel<pixelTopology::HIonPhase1>;
 }  // namespace pixelgpudetails

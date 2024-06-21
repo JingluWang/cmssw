@@ -1,6 +1,3 @@
-#include "G4Version.hh"
-#if G4VERSION_NUMBER >= 1100
-
 #include "SimG4Core/PhysicsLists/interface/CMSEmStandardPhysicsTrackingManager.h"
 #include "TrackingManagerHelper.h"
 
@@ -39,7 +36,7 @@
 #include "G4LossTableManager.hh"
 
 #include "G4EmParameters.hh"
-#include "G4SystemOfUnits.hh"
+#include <CLHEP/Units/SystemOfUnits.h>
 
 #include "G4Electron.hh"
 #include "G4Gamma.hh"
@@ -726,5 +723,3 @@ void CMSEmStandardPhysicsTrackingManager::HandOverOneTrack(G4Track *aTrack) {
   aTrack->SetTrackStatus(fStopAndKill);
   delete aTrack;
 }
-
-#endif

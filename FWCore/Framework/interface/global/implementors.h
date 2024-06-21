@@ -50,6 +50,7 @@ namespace edm {
 
   class WaitingTaskWithArenaHolder;
   class ServiceWeakToken;
+  class ActivityRegistry;
 
   namespace global {
     namespace impl {
@@ -433,7 +434,7 @@ namespace edm {
         ~ExternalWork() noexcept(false) override{};
 
       private:
-        bool hasAcquire() const override { return true; }
+        bool hasAcquire() const noexcept override { return true; }
 
         void doAcquire_(StreamID, Event const&, edm::EventSetup const&, WaitingTaskWithArenaHolder&) final;
 
@@ -449,7 +450,7 @@ namespace edm {
         ~Accumulator() noexcept(false) override{};
 
       private:
-        bool hasAccumulator() const override { return true; }
+        bool hasAccumulator() const noexcept override { return true; }
 
         void produce(StreamID streamID, Event& ev, EventSetup const& es) const final { accumulate(streamID, ev, es); }
 
@@ -510,17 +511,18 @@ namespace edm {
         }
 
       private:
-        size_t transformIndex_(edm::BranchDescription const& iBranch) const final {
+        size_t transformIndex_(edm::BranchDescription const& iBranch) const noexcept final {
           return TransformerBase::findMatchingIndex(*this, iBranch);
         }
-        ProductResolverIndex transformPrefetch_(std::size_t iIndex) const final {
+        ProductResolverIndex transformPrefetch_(std::size_t iIndex) const noexcept final {
           return TransformerBase::prefetchImp(iIndex);
         }
         void transformAsync_(WaitingTaskHolder iTask,
                              std::size_t iIndex,
                              edm::EventForTransformer& iEvent,
-                             ServiceWeakToken const& iToken) const final {
-          return TransformerBase::transformImpAsync(std::move(iTask), iIndex, *this, iEvent);
+                             edm::ActivityRegistry* iAct,
+                             ServiceWeakToken const& iToken) const noexcept final {
+          return TransformerBase::transformImpAsync(std::move(iTask), iIndex, iAct, *this, iEvent);
         }
         void extendUpdateLookup(BranchType iBranchType, ProductResolverIndexHelper const& iHelper) override {
           if (iBranchType == InEvent) {

@@ -38,7 +38,7 @@
 #include "DataFormats/HLTReco/interface/TriggerTypeDefs.h"
 #include "DataFormats/HLTReco/interface/TriggerFilterObjectWithRefs.h"
 #include "TrackingTools/TrajectoryParametrization/interface/CurvilinearTrajectoryError.h"
-#include "RecoPixelVertexing/PixelTrackFitting/interface/FitUtils.h"
+#include "RecoTracker/PixelTrackFitting/interface/FitUtils.h"
 #include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
 #include "DataFormats/TrackReco/interface/HitPattern.h"
 #include "TrackingTools/AnalyticalJacobians/interface/JacobianLocalToCurvilinear.h"
@@ -731,14 +731,16 @@ void L2TauNNProducer::fillPatatracks(tensorflow::Tensor& cellGridMatrix,
 }
 
 std::vector<float> L2TauNNProducer::getTauScore(const tensorflow::Tensor& cellGridMatrix) {
-  std::vector<tensorflow::Tensor> pred_tensor;
-  tensorflow::run(L2cacheData_->session, {{inputTensorName_, cellGridMatrix}}, {outputTensorName_}, &pred_tensor);
   const int nTau = cellGridMatrix.shape().dim_size(0);
   std::vector<float> pred_vector(nTau);
-  for (int tau_idx = 0; tau_idx < nTau; ++tau_idx) {
-    pred_vector[tau_idx] = pred_tensor[0].matrix<float>()(tau_idx, 0);
+  if (nTau > 0) {
+    // Only run the inference if there are taus to process
+    std::vector<tensorflow::Tensor> pred_tensor;
+    tensorflow::run(L2cacheData_->session, {{inputTensorName_, cellGridMatrix}}, {outputTensorName_}, &pred_tensor);
+    for (int tau_idx = 0; tau_idx < nTau; ++tau_idx) {
+      pred_vector[tau_idx] = pred_tensor[0].matrix<float>()(tau_idx, 0);
+    }
   }
-
   return pred_vector;
 }
 

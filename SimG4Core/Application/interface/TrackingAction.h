@@ -5,8 +5,11 @@
 #include "SimG4Core/Notification/interface/SimActivityRegistry.h"
 
 #include "G4UserTrackingAction.hh"
+#include "G4Region.hh"
 
-class EventAction;
+#include <vector>
+
+class SimTrackManager;
 class TrackWithHistory;
 class BeginOfTrack;
 class EndOfTrack;
@@ -15,8 +18,8 @@ class TrackInformation;
 
 class TrackingAction : public G4UserTrackingAction {
 public:
-  explicit TrackingAction(EventAction* ea, const edm::ParameterSet& ps, CMSSteppingVerbose*);
-  ~TrackingAction() override;
+  explicit TrackingAction(SimTrackManager*, CMSSteppingVerbose*, const edm::ParameterSet& ps);
+  ~TrackingAction() override = default;
 
   void PreUserTrackingAction(const G4Track* aTrack) override;
   void PostUserTrackingAction(const G4Track* aTrack) override;
@@ -29,15 +32,18 @@ public:
   SimActivityRegistry::EndOfTrackSignal m_endOfTrackSignal;
 
 private:
-  EventAction* eventAction_;
+  SimTrackManager* trackManager_;
   CMSSteppingVerbose* steppingVerbose_;
   const G4Track* g4Track_ = nullptr;
   TrackInformation* trkInfo_ = nullptr;
   TrackWithHistory* currentTrack_ = nullptr;
+  int endPrintTrackID_;
   bool checkTrack_;
   bool doFineCalo_;
   bool saveCaloBoundaryInformation_;
-  double eMinFine_;
+  double ekinMin_;
+  std::vector<double> ekinMinRegion_;
+  std::vector<G4Region*> ptrRegion_;
 };
 
 #endif

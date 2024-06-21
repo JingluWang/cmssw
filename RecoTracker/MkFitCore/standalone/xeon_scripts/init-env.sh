@@ -1,9 +1,13 @@
 #!/bin/bash
-if [[ `lsb_release -si` == "Fedora" ]]
+if [[ `[ -f /usr/bin/lsb_release ] && lsb_release -si` == "Fedora" ]]
 then
-  source /cvmfs/cms.cern.ch/el8_amd64_gcc10/lcg/root/6.24.07-da610b2b7ed663a0a05d3605f3d83ceb/etc/profile.d/init.sh
-  export TBB_GCC=/cvmfs/cms.cern.ch/el8_amd64_gcc10/external/tbb/v2021.5.0-e966a5acb1e4d5fd7605074bafbb079c/
+  os_arch_comp="el9_amd64_gcc13"
+elif [[ `[ -f /etc/redhat-release ] && awk '{print $1}' /etc/redhat-release` == "AlmaLinux" ]]
+then
+  os_arch_comp="el8_amd64_gcc12"
 else
-  source /cvmfs/cms.cern.ch/slc7_amd64_gcc10/lcg/root/6.24.07-f52350f4e0b802edeb9a2551a7d00b92/etc/profile.d/init.sh
-  export TBB_GCC=/cvmfs/cms.cern.ch/slc7_amd64_gcc10/external/tbb/v2021.4.0-d0152ca29055e3a1bbf629673f6e97c4
+  os_arch_comp="slc7_amd64_gcc11"
 fi
+
+source /cvmfs/cms.cern.ch/${os_arch_comp}/lcg/root/6.28.07-573b0d3de9894ea2ab667c0d36cf4882/etc/profile.d/init.sh
+export TBB_GCC=/cvmfs/cms.cern.ch/${os_arch_comp}/external/tbb/v2021.9.0-295412b9bb1d6b3275d2ace3e62c1faa

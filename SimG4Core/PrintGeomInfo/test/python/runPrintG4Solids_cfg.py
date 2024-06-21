@@ -1,27 +1,30 @@
 ###############################################################################
 # Way to use this:
-#   cmsRun grunPrintG4Solids_cfg.py geometry=D86 dd4hep=False
+#   cmsRun grunPrintG4Solids_cfg.py geometry=D98 dd4hep=False
 #
-#   Options for geometry D77, D83, D88, D92, D93
+#   Options for geometry D88, D91, D92, D93, D94, D95, D96, D98, D99, D100,
+#                        D101, D102, D103, D104, D105, D106, D107,
+#                        D108, D109, D110, D111, D112, D113
+#   Options for type DDD, DD4hep
 #
 ###############################################################################
 import FWCore.ParameterSet.Config as cms
-import os, sys, imp, re
+import os, sys, importlib, re
 import FWCore.ParameterSet.VarParsing as VarParsing
 
 ####################################################################
 ### SETUP OPTIONS
 options = VarParsing.VarParsing('standard')
 options.register('geometry',
-                 "D92",
+                 "D88",
                   VarParsing.VarParsing.multiplicity.singleton,
                   VarParsing.VarParsing.varType.string,
-                  "geometry of operations: D77, D83, D88, D92, D93")
-options.register('dd4hep',
-                 False,
-                 VarParsing.VarParsing.multiplicity.singleton,
-                 VarParsing.VarParsing.varType.bool,
-                 "Geometry source DD4hep or DDD: False, True")
+                  "geometry of operations: D88, D91, D92, D93, D94, D95, D96, D98, D99, D100, D101, D102, D103, D104, D105, D106, D107, D108, D109, D110, D111, D112, D113")
+options.register('type',
+                 "DDD",
+                  VarParsing.VarParsing.multiplicity.singleton,
+                  VarParsing.VarParsing.varType.string,
+                  "type of operations: DDD, DD4hep")
 
 ### get and parse the command line arguments
 options.parseArguments()
@@ -31,53 +34,66 @@ print(options)
 ####################################################################
 # Use the options
 from Configuration.ProcessModifiers.dd4hep_cff import dd4hep
-if (options.geometry == "D83"):
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    if (options.dd4hep):
-        process = cms.Process('PrintG4Solids',Phase2C11M9,dd4hep)
-        process.load('Configuration.Geometry.GeometryDD4hepExtended2026D83Reco_cff')
-    else:
-        process = cms.Process('PrintG4Solids',Phase2C11M9)
-        process.load('Configuration.Geometry.GeometryExtended2026D83Reco_cff')
-elif (options.geometry == "D77"):
-    from Configuration.Eras.Era_Phase2C11_cff import Phase2C11
-    if (options.dd4hep):
-        process = cms.Process('PrintG4Solids',Phase2C11,dd4hep)
-        process.load('Configuration.Geometry.GeometryDD4hepExtended2026D77Reco_cff')
-    else:
-        process = cms.Process('PrintG4Solids',Phase2C11)
-        process.load('Configuration.Geometry.GeometryExtended2026D77Reco_cff')
-elif (options.geometry == "D92"):
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    if (options.dd4hep):
-        process = cms.Process('PrintG4Solids',Phase2C11M9,dd4hep)
-        process.load('Configuration.Geometry.GeometryDD4hepExtended2026D92Reco_cff')
-    else:
-        process = cms.Process('PrintG4Solids',Phase2C11M9)
-        process.load('Configuration.Geometry.GeometryExtended2026D92Reco_cff')
-elif (options.geometry == "D93"):
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    if (options.dd4hep):
-        process = cms.Process('PrintG4Solids',Phase2C11M9,dd4hep)
-        process.load('Configuration.Geometry.GeometryDD4hepExtended2026D93Reco_cff')
-    else:
-        process = cms.Process('PrintG4Solids',Phase2C11M9)
-        process.load('Configuration.Geometry.GeometryExtended2026D93Reco_cff')
-else:
-    from Configuration.Eras.Era_Phase2C11M9_cff import Phase2C11M9
-    if (options.dd4hep):
-        process = cms.Process('PrintG4Solids',Phase2C11M9,dd4hep)
-        process.load('Configuration.Geometry.GeometryDD4hepExtended2026D88Reco_cff')
-    else:
-        process = cms.Process('PrintG4Solids',Phase2C11M9)
-        process.load('Configuration.Geometry.GeometryExtended2026D88Reco_cff')
 
-process.load('FWCore.MessageService.MessageLogger_cfi')
+if (options.type == "DD4hep"):
+    geomFile = "Configuration.Geometry.GeometryDD4hepExtended2026" + options.geometry + "Reco_cff"
+    if (options.geometry == "D94"):
+        from Configuration.Eras.Era_Phase2C20I13M9_cff import Phase2C20I13M9
+        process = cms.Process('PrintG4Solids',Phase2C20I13M9,dd4hep)
+    else:
+        from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
+        process = cms.Process('PrintG4Solids',Phase2C17I13M9,dd4hep)
+else:
+    geomFile = "Configuration.Geometry.GeometryExtended2026" + options.geometry + "Reco_cff"
+    if (options.geometry == "D94"):
+        from Configuration.Eras.Era_Phase2C20I13M9_cff import Phase2C20I13M9
+        process = cms.Process('PrintG4Solids',Phase2C20I13M9)
+    else:
+        from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
+        process = cms.Process('PrintG4Solids',Phase2C17I13M9)
+
+print("Geometry file Name: ", geomFile)
 
 if hasattr(process,'MessageLogger'):
     process.MessageLogger.G4cerr=dict()
     process.MessageLogger.G4cout=dict()
 
-from SimG4Core.PrintGeomInfo.g4PrintG4Solids_cfi import *
+if (options.type == "DD4hep"):
+    dd4hep = True
+else:
+    dd4hep = False
 
-process = printGeomInfo(process)
+process.load('SimGeneral.HepPDTESSource.pdt_cfi')
+process.load(geomFile)
+process.load('IOMC.RandomEngine.IOMC_cff')
+process.load('IOMC.EventVertexGenerators.VtxSmearedFlat_cfi')
+process.load('GeneratorInterface.Core.generatorSmeared_cfi')
+process.load('FWCore.MessageService.MessageLogger_cfi')
+process.load("Configuration.StandardSequences.MagneticField_38T_cff")
+process.load('SimG4Core.Application.g4SimHits_cfi')
+process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
+from Configuration.AlCa.GlobalTag import GlobalTag
+process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic_T21', '')
+
+process.source = cms.Source("EmptySource")
+
+process.generator = cms.EDProducer("FlatRandomEGunProducer",
+    PGunParameters = cms.PSet(
+        PartID = cms.vint32(14),
+        MinEta = cms.double(-3.5),
+        MaxEta = cms.double(3.5),
+        MinPhi = cms.double(-3.14159265359),
+        MaxPhi = cms.double(3.14159265359),
+        MinE   = cms.double(9.99),
+        MaxE   = cms.double(10.01)
+    ),
+    AddAntiParticle = cms.bool(False),
+    Verbosity       = cms.untracked.int32(0),
+    firstRun        = cms.untracked.uint32(1)
+)
+
+process.maxEvents = cms.untracked.PSet(
+    input = cms.untracked.int32(1)
+)
+
+process.p1 = cms.Path(process.generator*process.VtxSmeared*process.generatorSmeared*process.g4SimHits)

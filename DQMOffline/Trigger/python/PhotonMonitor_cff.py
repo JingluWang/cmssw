@@ -43,28 +43,18 @@ SinglePhoton165_R9Id90_HE10_IsoM_monitoring = hltPhotonmonitoring.clone(
     numGenericTriggerEventPSet = dict(hltPaths = ["HLT_Photon165_R9Id90_HE10_IsoM_v*"])
 )
 
-Photon60_monitoring = hltPhotonmonitoring.clone(
-    FolderName = 'HLT/EGM/Photon/Photon60/',
+Photon60_DisplacedIdL_PFHT350_monitoring = hltPhotonmonitoring.clone(
+    FolderName = 'HLT/EXO/DisplacedPhoton/Photon60_DisplacedIdL_PFHT350/',
     photonSelection = "pt > 20 && r9() < 0.1 && ((eta<1.4442 && hadTowOverEm<0.0597 && full5x5_sigmaIetaIeta()<0.01031 && chargedHadronIso<1.295) || (eta<2.5 && eta>1.566 && hadTowOverEm<0.0481 && full5x5_sigmaIetaIeta()<0.03013 && chargedHadronIso<1.011))",
-    denGenericTriggerEventPSet = dict(hltPaths = []),
-    numGenericTriggerEventPSet = dict(hltPaths = ["HLT_Photon60_R9Id90_CaloIdL_IsoL_v*"])
-)
-
-
-Photon60_DisplacedIdL_monitoring = Photon60_monitoring.clone(
-    FolderName = 'HLT/EXO/DisplacedPhoton/Photon60_DisplacedIdL/',
-    denGenericTriggerEventPSet = dict(hltPaths = ["HLT_Photon60_R9Id90_CaloIdL_IsoL_v*"]),
-    numGenericTriggerEventPSet = dict(hltPaths = ["HLT_Photon60_R9Id90_CaloIdL_IsoL_DisplacedIdL_v*"])
-)
-
-
-Photon60_DisplacedIdL_PFJet350MinPFJet15_monitoring = Photon60_DisplacedIdL_monitoring.clone(
-    FolderName = 'HLT/EXO/DisplacedPhoton/Photon60_DisplacedIdL_PFJet350MinPFJet15/',
     denGenericTriggerEventPSet = dict(andOrHlt = False,
-                                      hltPaths = ["HLT_Photon60_R9Id90_CaloIdL_IsoL_v*","HLT_PFHT350MinPFJet15_v*"]),
-    numGenericTriggerEventPSet = dict(hltPaths = ["HLT_Photon60_R9Id90_CaloIdL_IsoL_DisplacedIdL_PFHT350MinPFJet15_v*"])
+                                      hltPaths = ["HLT_Photon50_R9Id90_HE10_IsoM_v*","HLT_PFHT350_v*"]),
+    numGenericTriggerEventPSet = dict(hltPaths = ["HLT_Photon60_R9Id90_CaloIdL_IsoL_DisplacedIdL_PFHT350_v*"])
 )
 
+CscCluster50_Photon20Unseeded = hltPhotonmonitoring.clone(
+    FolderName = 'HLT/EXO/DisplacedPhoton/CscCluster50_Photon20Unseeded/',
+    numGenericTriggerEventPSet = dict(hltPaths = ["HLT_CscCluster50_Photon20Unseeded_v*"])
+)
 
 from DQMOffline.Trigger.ObjMonitor_cfi import hltobjmonitoring
 
@@ -114,9 +104,7 @@ Photon75_R9Id90_HE10_IsoM_EBOnly_PFJetsMJJ300DEta3_monitoring = hltobjmonitoring
 exoHLTPhotonmonitoring = cms.Sequence(
     SinglePhoton300_monitoring
     + SinglePhoton200_monitoring
-    + Photon60_monitoring
-    + Photon60_DisplacedIdL_monitoring
-    + Photon60_DisplacedIdL_PFJet350MinPFJet15_monitoring
+    + Photon60_DisplacedIdL_PFHT350_monitoring
     + SinglePhoton50_R9Id90_HE10_IsoM_monitoring
     + SinglePhoton75_R9Id90_HE10_IsoM_monitoring
     + SinglePhoton90_R9Id90_HE10_IsoM_monitoring
@@ -124,6 +112,7 @@ exoHLTPhotonmonitoring = cms.Sequence(
     + SinglePhoton165_R9Id90_HE10_IsoM_monitoring
     + Photon50_R9Id90_HE10_IsoM_EBOnly_PFJetsMJJ300DEta3_PFMET50_monitoring
     + Photon75_R9Id90_HE10_IsoM_EBOnly_PFJetsMJJ300DEta3_monitoring
+    + CscCluster50_Photon20Unseeded
 )
 
 
@@ -173,13 +162,6 @@ DiPhoton10Time1p4ns_monitoring = hltPhotonmonitoring.clone(
     numGenericTriggerEventPSet = dict(hltPaths = ["HLT_DiPhoton10Time1p4ns_v*"]),
 )
 
-DiPhoton10sminlt0p1_monitoring = hltPhotonmonitoring.clone(
-    FolderName = 'HLT/EXO/DiPhoton/DiPhoton10sminlt0p1/',
-    nphotons = 2,
-    photonSelection = "(pt > 10 && abs(eta)<1.4442 && hadTowOverEm<0.12 && full5x5_sigmaIetaIeta()<0.015 && full5x5_r9>.5)||(pt > 10 && abs(eta)<2.5 && abs(eta)>1.5556 && hadTowOverEm<0.12 && full5x5_sigmaIetaIeta()<0.035 && full5x5_r9>.8)",
-    numGenericTriggerEventPSet = dict(hltPaths = ["HLT_DiPhoton10sminlt0p1_v*"]),
-)
-
 higgsHLTDiphotonMonitoring = cms.Sequence(
     DiphotonMass90_monitoring
     +DiphotonMass95_monitoring
@@ -187,5 +169,4 @@ higgsHLTDiphotonMonitoring = cms.Sequence(
     +Diphoton3018_monitoring
     +Diphoton2214_monitoring
     +DiPhoton10Time1p4ns_monitoring
-    +DiPhoton10sminlt0p1_monitoring
 )

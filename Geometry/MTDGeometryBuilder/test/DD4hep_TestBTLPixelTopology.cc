@@ -1,5 +1,3 @@
-//#define EDM_ML_DEBUG
-
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -266,8 +264,9 @@ void DD4hep_TestBTLPixelTopology::analyze(const edm::Event& iEvent, const edm::E
                                 convertMmToCm(refLocalPoints[iloop].y() / dd4hep::mm),
                                 convertMmToCm(refLocalPoints[iloop].z() / dd4hep::mm));
         Local3DPoint modLocal = topo.pixelToModuleLocalPoint(cmRefLocal, origRow, origCol);
-        const auto& thepixel = topo.pixel(modLocal);
-        uint8_t recoRow(thepixel.first), recoCol(thepixel.second);
+        const auto& thepixel = topo.pixelIndex(modLocal);
+        uint8_t recoRow = static_cast<uint8_t>(thepixel.first);
+        uint8_t recoCol = static_cast<uint8_t>(thepixel.second);
 
         if (origRow != recoRow || origCol != recoCol) {
           std::stringstream warnmsg;
@@ -279,6 +278,8 @@ void DD4hep_TestBTLPixelTopology::analyze(const edm::Event& iEvent, const edm::E
           recoCol = origCol;
         }
 
+        Local3DPoint recoRefLocal = topo.moduleToPixelLocalPoint(modLocal);
+
         // reconstructed global position from reco geometry and rectangluar MTD topology
 
         const auto& modGlobal = thedet->toGlobal(modLocal);
@@ -287,17 +288,30 @@ void DD4hep_TestBTLPixelTopology::analyze(const edm::Event& iEvent, const edm::E
         const double deltay = convertCmToMm(modGlobal.y()) - (refGlobalPoints[iloop].y() / dd4hep::mm);
         const double deltaz = convertCmToMm(modGlobal.z()) - (refGlobalPoints[iloop].z() / dd4hep::mm);
 
+        const double local_deltax = recoRefLocal.x() - cmRefLocal.x();
+        const double local_deltay = recoRefLocal.y() - cmRefLocal.y();
+        const double local_deltaz = recoRefLocal.z() - cmRefLocal.z();
+
         spix << "Ref#" << iloop << " local= " << fround(refLocalPoints[iloop].x() / dd4hep::mm)
              << fround(refLocalPoints[iloop].y() / dd4hep::mm) << fround(refLocalPoints[iloop].z() / dd4hep::mm)
              << " Orig global= " << fround(refGlobalPoints[iloop].x() / dd4hep::mm)
              << fround(refGlobalPoints[iloop].y() / dd4hep::mm) << fround(refGlobalPoints[iloop].z() / dd4hep::mm)
              << " Reco global= " << fround(convertCmToMm(modGlobal.x())) << fround(convertCmToMm(modGlobal.y()))
              << fround(convertCmToMm(modGlobal.z())) << " Delta= " << fround(deltax) << fround(deltay) << fround(deltaz)
-             << "\n";
+             << " Local Delta= " << fround(local_deltax) << fround(local_deltay) << fround(local_deltaz) << "\n";
         if (std::abs(deltax) > tolerance || std::abs(deltay) > tolerance || std::abs(deltaz) > tolerance) {
           std::stringstream warnmsg;
           warnmsg << "DIFFERENCE detId/ref# " << theId.rawId() << " " << iloop << " dx/dy/dz= " << fround(deltax)
                   << fround(deltay) << fround(deltaz) << "\n";
+          spix << warnmsg.str();
+          sunitt << warnmsg.str();
+        }
+        if (std::abs(local_deltax) > tolerance || std::abs(local_deltay) > tolerance ||
+            std::abs(local_deltaz) > tolerance) {
+          std::stringstream warnmsg;
+          warnmsg << "DIFFERENCE detId/ref# " << theId.rawId() << " " << iloop
+                  << " local dx/dy/dz= " << fround(local_deltax) << fround(local_deltay) << fround(local_deltaz)
+                  << "\n";
           spix << warnmsg.str();
           sunitt << warnmsg.str();
         }
@@ -322,7 +336,7 @@ void DD4hep_TestBTLPixelTopology::theBaseNumber(cms::DDFilteredView& fv) {
     size_t ipos = name.rfind('_');
     thisN_.addLevel(name.substr(0, ipos), fv.copyNos()[ii]);
 #ifdef EDM_ML_DEBUG
-    edm::LogVerbatim("DD4hep_TestBTLPixelTopology") << name.substr(0, ipos) << " " << fv.copyNos()[ii];
+    edm::LogVerbatim("DD4hep_TestBTLPixelTopology") << ii << " " << name.substr(0, ipos) << " " << fv.copyNos()[ii];
 #endif
   }
 }

@@ -44,7 +44,6 @@ from DQMOffline.RecoB.dqmAnalyzer_cff import *
 from Validation.RecoB.BDHadronTrackValidation_cff import *
 from Validation.Configuration.hgcalSimValid_cff import *
 from Validation.Configuration.mtdSimValid_cff import *
-from Validation.SiOuterTrackerV.OuterTrackerSourceConfigV_cff import *
 from Validation.Configuration.ecalSimValid_cff import *
 from Validation.SiTrackerPhase2V.Phase2TrackerValidationFirstStep_cff import *
 
@@ -57,7 +56,7 @@ globalPrevalidationTracking = cms.Sequence(
 globalPrevalidation = cms.Sequence(
     globalPrevalidationTracking
   * photonPrevalidationSequence
-  * produceDenoms
+  #* produceDenoms
   * prebTagSequenceMC
 )
 
@@ -102,7 +101,6 @@ globalValidation = cms.Sequence(   trackerHitsValidation
                                  + L1Validator
                                  + bdHadronTrackValidationSeq
 )
-
 
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
 fastSim.toReplaceWith(globalValidation, globalValidation.copyAndExclude([
@@ -203,8 +201,6 @@ globalValidationHGCal = cms.Sequence(hgcalValidation)
 globalPrevalidationHGCal = cms.Sequence(hgcalAssociators, ticlSimTrackstersTask)
 
 globalValidationMTD = cms.Sequence()
-
-globalValidationOuterTracker = cms.Sequence(OuterTrackerSourceV)
 
 globalPrevalidationMuons = cms.Sequence(
       gemSimValid

@@ -1,14 +1,20 @@
 #include "L1Trigger/Phase2L1ParticleFlow/interface/L1TCorrelatorLayer1PatternFileWriter.h"
+#include "L1Trigger/Phase2L1ParticleFlow/interface/regionizer/middle_buffer_multififo_regionizer_ref.h"
 #include "FWCore/Utilities/interface/Exception.h"
+#include "FWCore/ParameterSet/interface/allowedValues.h"
 #include <iostream>
 
 L1TCorrelatorLayer1PatternFileWriter::L1TCorrelatorLayer1PatternFileWriter(const edm::ParameterSet& iConfig,
                                                                            const l1ct::Event& eventTemplate)
     : partition_(parsePartition(iConfig.getParameter<std::string>("partition"))),
-      writeInputs_(iConfig.existsAs<std::string>("inputFileName") &&
-                   !iConfig.getParameter<std::string>("inputFileName").empty()),
-      writeOutputs_(iConfig.existsAs<std::string>("outputFileName") &&
-                    !iConfig.getParameter<std::string>("outputFileName").empty()),
+      tmuxFactor_(iConfig.getParameter<uint32_t>("tmuxFactor")),
+      writeInputs_(!iConfig.getParameter<std::string>("inputFileName").empty()),
+      writeOutputs_(!iConfig.getParameter<std::string>("outputFileName").empty()),
+      tfTimeslices_(std::max(1u, tfTmuxFactor_ / tmuxFactor_)),
+      hgcTimeslices_(std::max(1u, hgcTmuxFactor_ / tmuxFactor_)),
+      gctTimeslices_(std::max(1u, gctTmuxFactor_ / tmuxFactor_)),
+      gmtTimeslices_(std::max(1u, gmtTmuxFactor_ / tmuxFactor_)),
+      gttTimeslices_(std::max(1u, gttTmuxFactor_ / tmuxFactor_)),
       outputBoard_(-1),
       outputLinkEgamma_(-1),
       fileFormat_(iConfig.getParameter<std::string>("fileFormat")),
@@ -19,10 +25,14 @@ L1TCorrelatorLayer1PatternFileWriter::L1TCorrelatorLayer1PatternFileWriter(const
 
     if (partition_ == Partition::Barrel || partition_ == Partition::HGCal) {
       configTimeSlices(iConfig, "tf", eventTemplate.raw.track.size(), tfTimeslices_, tfLinksFactor_);
-      channelSpecsInput_["tf"] = {tmuxFactor_ * tfTimeslices_, tfTimeslices_};
+      channelSpecsInput_["tf"] = {tfTmuxFactor_, tfTimeslices_};
     }
     if (partition_ == Partition::Barrel) {
       auto sectorConfig = iConfig.getParameter<std::vector<edm::ParameterSet>>("gctSectors");
+      gctLinksEcal_ = iConfig.getParameter<uint32_t>("gctNLinksEcal");
+      gctLinksHad_ = iConfig.getParameter<uint32_t>("gctNLinksHad");
+      gctSingleLink_ = false;
+      bool gctHasMultiLink = false;
       if (sectorConfig.size() != gctSectors_)
         throw cms::Exception("Configuration", "Bad number of GCT sectors");
       for (unsigned int iS = 0; iS < gctSectors_; ++iS) {
@@ -31,16 +41,24 @@ L1TCorrelatorLayer1PatternFileWriter::L1TCorrelatorLayer1PatternFileWriter(const
         if (linksEcal.size() != gctLinksEcal_ || linksHad.size() != gctLinksHad_)
           throw cms::Exception("Configuration", "Bad number of GCT links");
         unsigned int iLink = 0;
-        for (unsigned int i = 0; i < gctLinksHad_; ++i, ++iLink) {
-          if (linksHad[i] != -1)
-            channelIdsInput_[l1t::demo::LinkId{"gct", iLink + 10 * iS}].push_back(linksHad[i]);
-        }
-        for (unsigned int i = 0; i < gctLinksEcal_; ++i) {
-          if (linksEcal[i] != -1)
-            channelIdsInput_[l1t::demo::LinkId{"gct", iLink + 10 * iS}].push_back(linksEcal[i]);
+        if (!(gctLinksEcal_ == 1 && gctLinksHad_ == 1 && linksEcal[0] == linksHad[0] && linksEcal[0] != -1)) {
+          for (unsigned int i = 0; i < gctLinksHad_; ++i, ++iLink) {
+            if (linksHad[i] != -1)
+              channelIdsInput_[l1t::demo::LinkId{"gct", iLink + 10 * iS}].push_back(linksHad[i]);
+          }
+          for (unsigned int i = 0; i < gctLinksEcal_; ++i) {
+            if (linksEcal[i] != -1)
+              channelIdsInput_[l1t::demo::LinkId{"gct", iLink + 10 * iS}].push_back(linksEcal[i]);
+          }
+          gctHasMultiLink = true;
+        } else {  // single link combining ecal and hcal
+          channelIdsInput_[l1t::demo::LinkId{"gct", 10 * iS}].push_back(linksEcal[0]);
+          gctSingleLink_ = true;
         }
         channelSpecsInput_["gct"] = {tmuxFactor_ * gctTimeslices_, 0};
       }
+      if (gctSingleLink_ && gctHasMultiLink)
+        throw cms::Exception("Configuration", "Some GCT sectors have a single link, others have multiple.");
     }
     if (partition_ == Partition::HGCal || partition_ == Partition::HGCalNoTk) {
       configTimeSlices(iConfig, "hgc", eventTemplate.raw.hgcalcluster.size(), hgcTimeslices_, hgcLinksFactor_);
@@ -56,11 +74,12 @@ L1TCorrelatorLayer1PatternFileWriter::L1TCorrelatorLayer1PatternFileWriter(const
       configTimeSlices(iConfig, "gtt", 1, gttTimeslices_, gttLinksFactor_);
       gttLatency_ = iConfig.getParameter<uint32_t>("gttLatency");
       gttNumberOfPVs_ = iConfig.getParameter<uint32_t>("gttNumberOfPVs");
-      channelSpecsInput_["gtt"] = l1t::demo::ChannelSpec{tmuxFactor_, gttTimeslices_, gttLatency_};
+      channelSpecsInput_["gtt"] = l1t::demo::ChannelSpec{tmuxFactor_ * gttTimeslices_, 1, gttLatency_};
     }
     inputFileWriter_ =
         std::make_unique<l1t::demo::BoardDataWriter>(l1t::demo::parseFileFormat(fileFormat_),
                                                      iConfig.getParameter<std::string>("inputFileName"),
+                                                     iConfig.getParameter<std::string>("inputFileExtension"),
                                                      nInputFramesPerBX_,
                                                      tmuxFactor_,
                                                      iConfig.getParameter<uint32_t>("maxLinesPerInputFile"),
@@ -79,20 +98,25 @@ L1TCorrelatorLayer1PatternFileWriter::L1TCorrelatorLayer1PatternFileWriter(const
     channelSpecsOutput_["puppi"] = {tmuxFactor_, 0};
     nPuppiFramesPerRegion_ = (nOutputFramesPerBX_ * tmuxFactor_) / outputRegions_.size();
     if (partition_ == Partition::Barrel || partition_ == Partition::HGCal) {
-      outputBoard_ = iConfig.getParameter<int32_t>("outputBoard");
       outputLinkEgamma_ = iConfig.getParameter<int32_t>("outputLinkEgamma");
       nEgammaObjectsOut_ = iConfig.getParameter<uint32_t>("nEgammaObjectsOut");
       if (outputLinkEgamma_ != -1) {
         channelIdsOutput_[l1t::demo::LinkId{"egamma", 0}].push_back(outputLinkEgamma_);
-        channelSpecsOutput_["egamma"] = {tmuxFactor_, nOutputFramesPerBX_ * tmuxFactor_ - 3 * nEgammaObjectsOut_};
+        if (tmuxFactor_ == 18) {
+          // the format is different, as we put together multiple endcaps or slices
+          unsigned int nboards = (partition_ == Partition::Barrel) ? 3 : 2;
+          channelSpecsOutput_["egamma"] = {tmuxFactor_,
+                                           nOutputFramesPerBX_ * tmuxFactor_ / nboards - 3 * nEgammaObjectsOut_};
+        } else {
+          outputBoard_ = iConfig.getParameter<int32_t>("outputBoard");
+          channelSpecsOutput_["egamma"] = {tmuxFactor_, nOutputFramesPerBX_ * tmuxFactor_ - 3 * nEgammaObjectsOut_};
+        }
       }
-    }
-    if ((outputBoard_ == -1) != (outputLinkEgamma_ == -1)) {
-      throw cms::Exception("Configuration", "Inconsistent configuration of outputLinkEgamma, outputBoard");
     }
     outputFileWriter_ =
         std::make_unique<l1t::demo::BoardDataWriter>(l1t::demo::parseFileFormat(fileFormat_),
                                                      iConfig.getParameter<std::string>("outputFileName"),
+                                                     iConfig.getParameter<std::string>("outputFileExtension"),
                                                      nOutputFramesPerBX_,
                                                      tmuxFactor_,
                                                      iConfig.getParameter<uint32_t>("maxLinesPerOutputFile"),
@@ -102,6 +126,63 @@ L1TCorrelatorLayer1PatternFileWriter::L1TCorrelatorLayer1PatternFileWriter(const
 }
 
 L1TCorrelatorLayer1PatternFileWriter::~L1TCorrelatorLayer1PatternFileWriter() {}
+
+edm::ParameterSetDescription L1TCorrelatorLayer1PatternFileWriter::getParameterSetDescription() {
+  edm::ParameterSetDescription description;
+  description.add<std::string>("inputFileName", "");
+  description.add<std::string>("inputFileExtension", "txt.gz");
+  description.add<uint32_t>("maxLinesPerInputFile", 1024u);
+  description.add<uint32_t>("nInputFramesPerBX", 9u);
+  description.add<std::string>("outputFileName", "");
+  description.add<std::string>("outputFileExtension", "txt.gz");
+  description.add<uint32_t>("maxLinesPerOutputFile", 1024u);
+  description.add<uint32_t>("nOutputFramesPerBX", 9u);
+  description.add<uint32_t>("tmuxFactor", 6u);
+  description.add<uint32_t>("eventsPerFile", 12u);
+  description.add<std::string>("fileFormat");
+
+  description.ifValue(edm::ParameterDescription<std::string>("partition", "Barrel", true),
+                      "Barrel" >> (describeTF() and describeGCT() and describeGTT() and describeGMT() and
+                                   describePuppi() and describeEG()) or
+                          "HGCal" >> (describeTF() and describeHGC() and describeGTT() and describeGMT() and
+                                      describePuppi() and describeEG()) or
+                          "HGCalNoTk" >> (describeHGC() and describeGMT() and describePuppi()) or
+                          "HF" >> (describePuppi()));
+  return description;
+}
+
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeTF() {
+  return describeTimeSlices("tf");
+}
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeGCT() {
+  edm::ParameterSetDescription gctSectorPSD;
+  gctSectorPSD.add<std::vector<int32_t>>("gctLinksEcal");
+  gctSectorPSD.add<std::vector<int32_t>>("gctLinksHad");
+  return std::make_unique<edm::ParameterDescription<std::vector<edm::ParameterSet>>>(
+             "gctSectors", gctSectorPSD, true) and
+         edm::ParameterDescription<uint32_t>("gctNLinksEcal", 1, true) and
+         edm::ParameterDescription<uint32_t>("gctNLinksHad", 2, true);
+}
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeHGC() {
+  return describeTimeSlices("hgc");
+}
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeGMT() {
+  return describeTimeSlices("gmt") and edm::ParameterDescription<uint32_t>("gmtNumberOfMuons", 12, true);
+}
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeGTT() {
+  return describeTimeSlices("gtt") and
+         edm::ParameterDescription<uint32_t>("gttLatency", 162, true) and  // minimal latency is 18 BX
+         edm::ParameterDescription<uint32_t>("gttNumberOfPVs", 10, true);
+}
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describePuppi() {
+  return edm::ParameterDescription<std::vector<uint32_t>>("outputRegions", std::vector<uint32_t>(), true) and
+         edm::ParameterDescription<std::vector<uint32_t>>("outputLinksPuppi", std::vector<uint32_t>(), true);
+}
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeEG() {
+  return edm::ParameterDescription<int32_t>("outputLinkEgamma", -1, true) and
+         edm::ParameterDescription<uint32_t>("nEgammaObjectsOut", 16, true) and
+         edm::ParameterDescription<int32_t>("outputBoard", -1, true);
+}
 
 void L1TCorrelatorLayer1PatternFileWriter::write(const l1ct::Event& event) {
   if (writeInputs_) {
@@ -172,6 +253,14 @@ void L1TCorrelatorLayer1PatternFileWriter::configTimeSlices(const edm::Parameter
   }
 }
 
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeTimeSlices(
+    const std::string& prefix) {
+  edm::ParameterSetDescription timeslicesPSD;
+  timeslicesPSD.addNode(describeSectors(prefix));
+  return edm::ParameterDescription<std::vector<edm::ParameterSet>>(prefix + "TimeSlices", timeslicesPSD, true) xor
+         describeSectors(prefix);
+}
+
 void L1TCorrelatorLayer1PatternFileWriter::configSectors(const edm::ParameterSet& iConfig,
                                                          const std::string& prefix,
                                                          unsigned int nSectors,
@@ -188,6 +277,15 @@ void L1TCorrelatorLayer1PatternFileWriter::configSectors(const edm::ParameterSet
     configLinks(iConfig, prefix, linksFactor, 0);
   }
 }
+
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeSectors(
+    const std::string& prefix) {
+  edm::ParameterSetDescription sectorsPSD;
+  sectorsPSD.addNode(describeLinks(prefix));
+  return edm::ParameterDescription<std::vector<edm::ParameterSet>>(prefix + "Sectors", sectorsPSD, true) xor
+         describeLinks(prefix);
+}
+
 void L1TCorrelatorLayer1PatternFileWriter::configLinks(const edm::ParameterSet& iConfig,
                                                        const std::string& prefix,
                                                        unsigned int linksFactor,
@@ -208,6 +306,12 @@ void L1TCorrelatorLayer1PatternFileWriter::configLinks(const edm::ParameterSet& 
       channelIdsInput_[l1t::demo::LinkId{prefix, offset}].push_back(link);
     }
   }
+}
+
+std::unique_ptr<edm::ParameterDescriptionNode> L1TCorrelatorLayer1PatternFileWriter::describeLinks(
+    const std::string& prefix) {
+  return edm::ParameterDescription<int32_t>(prefix + "Link", true) xor
+         edm::ParameterDescription<std::vector<int32_t>>(prefix + "Links", true);
 }
 
 void L1TCorrelatorLayer1PatternFileWriter::writeTF(const l1ct::Event& event, l1t::demo::EventData& out) {
@@ -245,12 +349,12 @@ void L1TCorrelatorLayer1PatternFileWriter::writeHGC(const l1ct::Event& event, l1
       // put header word and (dummy) towers
       ret[il].resize(31);
       ap_uint<64>& head64 = ret[il][0];
-      head64(63, 48) = 0xABC0;                 // Magic
-      head64(47, 38) = 0;                      // Opaque
-      head64(39, 32) = (eventIndex_ % 3) * 6;  // TM slice
-      head64(31, 24) = iS;                     // Sector
-      head64(23, 16) = il;                     // link
-      head64(15, 0) = eventIndex_ % 3564;      // BX
+      head64(63, 48) = 0xABC0;                                        // Magic
+      head64(47, 38) = 0;                                             // Opaque
+      head64(39, 32) = (eventIndex_ % hgcTimeslices_) * tmuxFactor_;  // TM slice
+      head64(31, 24) = iS;                                            // Sector
+      head64(23, 16) = il;                                            // link
+      head64(15, 0) = eventIndex_ % 3564;                             // BX
       for (unsigned int j = 0; j < 30; ++j) {
         ret[il][j + 1] = 4 * j + il;
       }
@@ -274,24 +378,44 @@ void L1TCorrelatorLayer1PatternFileWriter::writeBarrelGCT(const l1ct::Event& eve
       continue;
     const auto& had = event.decoded.hadcalo[iS];
     const auto& ecal = event.decoded.emcalo[iS];
-    unsigned int iLink = 0, nHad = had.size(), nEcal = ecal.size();
-    for (unsigned int i = 0; i < gctLinksHad_; ++i, ++iLink) {
-      ret.clear();
-      for (unsigned int iHad = i; iHad < nHad; iHad += gctLinksHad_) {
-        ret.emplace_back(had[iHad].pack());
+    if (!gctSingleLink_) {
+      unsigned int iLink = 0, nHad = had.size(), nEcal = ecal.size();
+      for (unsigned int i = 0; i < gctLinksHad_; ++i, ++iLink) {
+        ret.clear();
+        for (unsigned int iHad = i; iHad < nHad; iHad += gctLinksHad_) {
+          ret.emplace_back(had[iHad].pack());
+        }
+        if (ret.empty())
+          ret.emplace_back(0);
+        out.add(l1t::demo::LinkId{"gct", iS * 10 + iLink}, ret);
       }
-      if (ret.empty())
-        ret.emplace_back(0);
-      out.add(l1t::demo::LinkId{"gct", iS * 10 + iLink}, ret);
-    }
-    for (unsigned int i = 0; i < gctLinksEcal_; ++i, ++iLink) {
-      ret.clear();
-      for (unsigned int iEcal = i; iEcal < nEcal; iEcal += gctLinksEcal_) {
-        ret.emplace_back(ecal[iEcal].pack());
+      for (unsigned int i = 0; i < gctLinksEcal_; ++i, ++iLink) {
+        ret.clear();
+        for (unsigned int iEcal = i; iEcal < nEcal; iEcal += gctLinksEcal_) {
+          ret.emplace_back(ecal[iEcal].pack());
+        }
+        if (ret.empty())
+          ret.emplace_back(0);
+        out.add(l1t::demo::LinkId{"gct", iS * 10 + iLink}, ret);
       }
-      if (ret.empty())
-        ret.emplace_back(0);
-      out.add(l1t::demo::LinkId{"gct", iS * 10 + iLink}, ret);
+    } else {
+      const unsigned int NCLK_EM = 54, NCLK_TOT = 3 * NCLK_EM;
+      l1ct::HadCaloObjEmu tmp;
+      ret.resize(std::min(NCLK_EM + had.size(), NCLK_TOT));
+      for (unsigned int iclock = 0, nem = ecal.size(); iclock < NCLK_EM; ++iclock) {
+        if (iclock < nem) {
+          l1ct::MiddleBufferMultififoRegionizerEmulator::encode(ecal[iclock], tmp);
+          ret[iclock] = tmp.pack();
+        } else {
+          ret[iclock] = 0;
+        }
+      }
+      for (unsigned int ihad = 0, iclock = NCLK_EM, nhad = had.size(); iclock < NCLK_TOT && ihad < nhad;
+           ++iclock, ++ihad) {
+        l1ct::MiddleBufferMultififoRegionizerEmulator::encode(had[ihad], tmp);
+        ret[iclock] = tmp.pack();
+      }
+      out.add(l1t::demo::LinkId{"gct", iS * 10}, ret);
     }
   }
 }
@@ -329,21 +453,37 @@ void L1TCorrelatorLayer1PatternFileWriter::writePuppi(const l1ct::Event& event, 
   }
 }
 
-void L1TCorrelatorLayer1PatternFileWriter::writeEgamma(const l1ct::Event& event, l1t::demo::EventData& out) {
-  std::vector<ap_uint<64>> ret;
-  const auto& pho = event.board_out[outputBoard_].egphoton;
-  const auto& ele = event.board_out[outputBoard_].egelectron;
-  ret.reserve(3 * nEgammaObjectsOut_);
+void L1TCorrelatorLayer1PatternFileWriter::writeEgamma(const l1ct::OutputBoard& egboard,
+                                                       std::vector<ap_uint<64>>& ret) {
+  unsigned int s0 = ret.size();
+  const auto& pho = egboard.egphoton;
+  const auto& ele = egboard.egelectron;
+  ret.reserve(s0 + 3 * nEgammaObjectsOut_);
   for (const auto& p : pho) {
     ret.emplace_back(p.pack());
   }
-  ret.resize(nEgammaObjectsOut_, ap_uint<64>(0));
+  ret.resize(s0 + nEgammaObjectsOut_, ap_uint<64>(0));
   for (const auto& p : ele) {
     ap_uint<128> dword = p.pack();
     ret.push_back(dword(63, 0));
     ret.push_back(dword(127, 64));
   }
-  ret.resize(3 * nEgammaObjectsOut_, ap_uint<64>(0));
+  ret.resize(s0 + 3 * nEgammaObjectsOut_, ap_uint<64>(0));
+}
+
+void L1TCorrelatorLayer1PatternFileWriter::writeEgamma(const l1ct::Event& event, l1t::demo::EventData& out) {
+  std::vector<ap_uint<64>> ret;
+  if (tmuxFactor_ == 18) {
+    // the format is different, as we put together all boards
+    unsigned int nboards = event.board_out.size();
+    unsigned int npad = nOutputFramesPerBX_ * tmuxFactor_ / nboards;
+    for (unsigned int board = 0; board < nboards; ++board) {
+      ret.resize(board * npad, ap_uint<64>(0));
+      writeEgamma(event.board_out[board], ret);
+    }
+  } else {
+    writeEgamma(event.board_out[outputBoard_], ret);
+  }
   out.add(l1t::demo::LinkId{"egamma", 0}, ret);
 }
 

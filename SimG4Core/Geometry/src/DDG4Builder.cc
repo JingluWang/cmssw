@@ -15,7 +15,7 @@
 #include "G4VPhysicalVolume.hh"
 #include "G4VSolid.hh"
 
-#include "G4SystemOfUnits.hh"
+#include <CLHEP/Units/SystemOfUnits.h>
 #include "G4UnitsTable.hh"
 
 #include <sstream>
@@ -104,7 +104,6 @@ G4LogicalVolume *DDG4Builder::BuildGeometry(SensitiveDetectorCatalog &catalog) {
   adjl_iterator git = gra.begin();
   adjl_iterator gend = gra.end();
 
-  Graph::index_type i = 0;
   for (; git != gend; ++git) {
     const DDLogicalPart &ddLP = gra.nodeData(git);
     if (!(ddLP.isDefined().second)) {
@@ -114,7 +113,6 @@ G4LogicalVolume *DDG4Builder::BuildGeometry(SensitiveDetectorCatalog &catalog) {
                                ddLP.toString());
     }
     G4LogicalVolume *g4LV = convertLV(ddLP);
-    ++i;
     if (!git->empty()) {
       // ask for children of ddLP
       Graph::edge_list::const_iterator cit = git->begin();

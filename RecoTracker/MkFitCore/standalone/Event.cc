@@ -251,7 +251,7 @@ namespace mkfit {
       printf("Read %i seedtracks (neg value means actual reading was skipped)\n", ns);
       for (int it = 0; it < ns; it++) {
         const Track &ss = seedTracks_[it];
-        printf("  %3i q=%+i pT=%7.3f eta=% 7.3f nHits=%i label=%4i algo=%2i\n",
+        printf("  %-3i q=%+i pT=%7.3f eta=% 7.3f nHits=%i label=%4i algo=%2i\n",
                it,
                ss.charge(),
                ss.pT(),
@@ -303,7 +303,7 @@ namespace mkfit {
     printf("Read %i simtracks\n", nt);
     for (int it = 0; it < nt; it++) {
       const Track &t = simTracks_[it];
-      printf("  %3i q=%+i pT=%7.3f eta=% 7.3f nHits=%2d  label=%4d\n",
+      printf("  %-3i q=%+i pT=%7.3f eta=% 7.3f nHits=%2d  label=%4d\n",
              it,
              t.charge(),
              t.pT(),
@@ -333,34 +333,50 @@ namespace mkfit {
     }
 #endif
 #ifdef DUMP_LAYER_HITS
+    // clang-format off
     printf("Read %i layers\n", nl);
     int total_hits = 0;
+    float min_delta = 100, max_delta = -100;
     for (int il = 0; il < nl; il++) {
       if (layerHits_[il].empty())
         continue;
 
-      printf("Read %i hits in layer %i\n", (int)layerHits_[il].size(), il);
+      const LayerInfo &linfo = Config::TrkInfo[il];
+      printf("Read %i hits in layer %i, is_brl=%d is_pix=%d\n",
+             (int)layerHits_[il].size(), il, linfo.is_barrel(), linfo.is_pixel());
       total_hits += layerHits_[il].size();
       for (int ih = 0; ih < (int)layerHits_[il].size(); ih++) {
         const Hit &hit = layerHits_[il][ih];
-        printf("  mcHitID=%5d r=%10g x=%10g y=%10g z=%10g  sx=%10.4g sy=%10.4e sz=%10.4e\n",
-               hit.mcHitID(),
-               hit.r(),
-               hit.x(),
-               hit.y(),
-               hit.z(),
-               std::sqrt(hit.exx()),
-               std::sqrt(hit.eyy()),
-               std::sqrt(hit.ezz()));
+        unsigned int mid = hit.detIDinLayer();
+        const ModuleInfo &mi = linfo.module_info(mid);
+
+        if ( ! linfo.is_pixel() && ! linfo.is_barrel()) {
+          float delta = mi.half_length - std::sqrt(3)*std::sqrt(hit.exx() + hit.eyy());
+          min_delta = std::min(min_delta, delta);
+          max_delta = std::max(max_delta, delta);
+        }
+        // continue;
+
+        printf("  mcHitID=%-5d r=%7g x=%8g y=%8g z=%8g"
+               "  sx=%10.4g sy=%10.4e sz=%10.4e sxy=%10.4e, mhl=%10.4e, delta=%10.4e"
+               "  chg_pcm=%u (%u - %u)\n",
+               hit.mcHitID(), hit.r(), hit.x(), hit.y(), hit.z(),
+               std::sqrt(hit.exx()), std::sqrt(hit.eyy()), std::sqrt(hit.ezz()),
+               std::sqrt(hit.exx() + hit.eyy()),
+               mi.half_length,
+               mi.half_length - std::sqrt(3)*std::sqrt(hit.exx() + hit.eyy()),
+               hit.chargePerCM(), hit.minChargePerCM(), hit.maxChargePerCM());
       }
     }
-    printf("Total hits in all layers = %d\n", total_hits);
+    printf("Total hits in all layers = %d; endcap strips: min_delta=%.5f  max_delta=%.5f\n",
+           total_hits, min_delta, max_delta);
+    // clang-format on
 #endif
 #ifdef DUMP_REC_TRACKS
     printf("Read %i rectracks\n", nert);
     for (int it = 0; it < nert; it++) {
       const Track &t = cmsswTracks_[it];
-      printf("  %i with q=%+i pT=%7.3f eta=% 7.3f nHits=%2d  label=%4d algo=%2d\n",
+      printf("  %-3i with q=%+i pT=%7.3f eta=% 7.3f nHits=%2d  label=%4d algo=%2d\n",
              it,
              t.charge(),
              t.pT(),
@@ -846,6 +862,64 @@ namespace mkfit {
   }
 
   //==============================================================================
+  // Handling of current seed vectors and MC label reconstruction from hit data
+  //==============================================================================
+
+  void Event::setCurrentSeedTracks(const TrackVec &seeds) {
+    currentSeedTracks_ = &seeds;
+    currentSeedSimFromHits_.clear();
+  }
+
+  const Track &Event::currentSeed(int i) const { return (*currentSeedTracks_)[i]; }
+
+  Event::SimLabelFromHits Event::simLabelForCurrentSeed(int i) const {
+    assert(currentSeedTracks_ != nullptr);
+
+    if (currentSeedSimFromHits_.empty()) {
+      currentSeedSimFromHits_.resize(currentSeedTracks_->size());
+
+      for (int si = 0; si < (int)currentSeedTracks_->size(); ++si) {
+        const Track &s = currentSeed(si);
+        // printf("%3d (%d): [", si, s.label());
+        std::map<int, int> lab_cnt;
+        for (int hi = 0; hi < s.nTotalHits(); ++hi) {
+          auto hot = s.getHitOnTrack(hi);
+          // printf(" %d", hot.index);
+          if (hot.index < 0)
+            continue;
+          const Hit &h = layerHits_[hot.layer][hot.index];
+          int hl = simHitsInfo_[h.mcHitID()].mcTrackID_;
+          // printf(" (%d)", hl);
+          if (hl >= 0)
+            ++lab_cnt[hl];
+        }
+        int max_c = -1, max_l = -1;
+        for (auto &x : lab_cnt) {
+          if (x.second > max_c) {
+            max_l = x.first;
+            max_c = x.second;
+          } else if (x.second == max_c) {
+            max_l = -1;
+          }
+        }
+        if (max_c < 0) {
+          max_c = 0;
+          max_l = -1;
+        }
+        // printf(" ] -> %d %d => %d\n", s.nTotalHits(), max_c, max_l);
+        currentSeedSimFromHits_[si] = {s.nTotalHits(), max_c, max_l};
+      }
+    }
+
+    return currentSeedSimFromHits_[i];
+  }
+
+  void Event::resetCurrentSeedTracks() {
+    currentSeedTracks_ = nullptr;
+    currentSeedSimFromHits_.clear();
+  }
+
+  //==============================================================================
   // DataFile
   //==============================================================================
 
@@ -937,6 +1011,12 @@ namespace mkfit {
     fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
   }
 
+  void DataFile::rewind() {
+    std::lock_guard<std::mutex> readlock(f_next_ev_mutex);
+    f_pos = sizeof(DataFileHeader);
+    fseek(f_fp, f_pos, SEEK_SET);
+  }
+
   int DataFile::advancePosToNextEvent(FILE *fp) {
     int evsize;
 
@@ -983,6 +1063,29 @@ namespace mkfit {
       fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
     }
     close();
+  }
+
+  //==============================================================================
+  // Misc debug / printout
+  //==============================================================================
+
+  void print(std::string pfx, int itrack, const Track &trk, const Event &ev) {
+    std::cout << std::endl
+              << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
+              << " State:" << std::endl;
+    print(trk.state());
+
+    for (int i = 0; i < trk.nTotalHits(); ++i) {
+      auto hot = trk.getHitOnTrack(i);
+      printf("  %2d: lyr %2d idx %5d", i, hot.layer, hot.index);
+      if (hot.index >= 0) {
+        auto &h = ev.layerHits_[hot.layer][hot.index];
+        int hl = ev.simHitsInfo_[h.mcHitID()].mcTrackID_;
+        printf("  %4d  %8.3f %8.3f %8.3f  r=%.3f\n", hl, h.x(), h.y(), h.z(), h.r());
+      } else {
+        printf("\n");
+      }
+    }
   }
 
 }  // end namespace mkfit

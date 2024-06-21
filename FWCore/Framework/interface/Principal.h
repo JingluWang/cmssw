@@ -131,12 +131,6 @@ namespace edm {
                        ServiceToken const& token,
                        ModuleCallingContext const* mcc) const;
 
-    void getManyByType(TypeID const& typeID,
-                       BasicHandleVec& results,
-                       EDConsumerBase const* consumes,
-                       SharedResourcesAcquirer* sra,
-                       ModuleCallingContext const* mcc) const;
-
     ProcessHistory const& processHistory() const { return *processHistoryPtr_; }
 
     ProcessHistoryID const& processHistoryID() const { return processHistoryID_; }
@@ -194,9 +188,9 @@ namespace edm {
 
     void readAllFromSourceAndMergeImmediately(MergeableRunProductMetadata const* mergeableRunProductMetadata = nullptr);
 
-    std::vector<unsigned int> const& lookupProcessOrder() const { return lookupProcessOrder_; }
+    std::vector<unsigned int> const& lookupProcessOrder() const noexcept { return lookupProcessOrder_; }
 
-    ConstProductResolverPtr getProductResolverByIndex(ProductResolverIndex const& oid) const;
+    ConstProductResolverPtr getProductResolverByIndex(ProductResolverIndex const& oid) const noexcept;
 
     virtual unsigned int processBlockIndex(std::string const& processName) const;
 
@@ -244,12 +238,6 @@ namespace edm {
     OptionalThinnedKey getThinnedKeyFrom(ProductID const& parent,
                                          unsigned int key,
                                          ProductID const& thinned) const override;
-
-    void findProducts(std::vector<ProductResolverBase const*> const& holders,
-                      TypeID const& typeID,
-                      BasicHandleVec& results,
-                      SharedResourcesAcquirer* sra,
-                      ModuleCallingContext const* mcc) const;
 
     ProductData const* findProductByLabel(KindOfType kindOfType,
                                           TypeID const& typeID,

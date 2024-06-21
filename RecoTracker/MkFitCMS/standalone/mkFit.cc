@@ -14,17 +14,18 @@
 
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 
-#include "RecoTracker/MkFitCore/src/MaterialEffects.h"
-
 #ifndef NO_ROOT
 #include "RecoTracker/MkFitCore/standalone/Validation.h"
+#include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
 #endif
 
 //#define DEBUG
 #include "RecoTracker/MkFitCore/src/Debug.h"
+#include "RecoTracker/MkFitCMS/standalone/Shell.h"
 
 #include "oneapi/tbb/task_arena.h"
 #include "oneapi/tbb/parallel_for.h"
+#include <oneapi/tbb/global_control.h>
 
 #if defined(USE_VTUNE_PAUSE)
 #include "ittnotify.h"
@@ -39,6 +40,11 @@
 using namespace mkfit;
 
 //==============================================================================
+
+namespace mkfit::internal {
+  // Filled in geometry plugin.
+  std::vector<DeadVec> deadvectors;
+}  // namespace mkfit::internal
 
 void initGeom() {
   std::cout << "Constructing geometry '" << Config::geomPlugin << "'\n";
@@ -116,7 +122,7 @@ namespace {
 
   bool g_run_fit_std = false;
 
-  bool g_run_build_all = true;
+  bool g_run_build_default = true;
   bool g_run_build_cmssw = false;
   bool g_run_build_bh = false;
   bool g_run_build_std = false;
@@ -154,13 +160,6 @@ namespace {
   }
 
   const char* b2a(bool b) { return b ? "true" : "false"; }
-
-  std::vector<DeadVec> deadvectors;
-
-  void init_deadvectors() {
-    deadvectors.resize(Config::TrkInfo.n_layers());
-#include "RecoTracker/MkFitCMS/standalone/deadmodules.h"
-  }
 
 }  // namespace
 
@@ -200,26 +199,14 @@ void listOpts(const U& g_opt_map) {
 //==============================================================================
 
 void test_standard() {
-  printf("Running test_standard(), operation=\"%s\"\n", g_operation.c_str());
-  printf("  vusize=%d, num_th_sim=%d, num_th_finder=%d\n",
-         MPT_SIZE,
-         Config::numThreadsSimulation,
-         Config::numThreadsFinder);
-  printf(
-      "  sizeof(Track)=%zu, sizeof(Hit)=%zu, sizeof(SVector3)=%zu, sizeof(SMatrixSym33)=%zu, sizeof(MCHitInfo)=%zu\n",
-      sizeof(Track),
-      sizeof(Hit),
-      sizeof(SVector3),
-      sizeof(SMatrixSym33),
-      sizeof(MCHitInfo));
+  printf("Running test_standard(), operation=\"%s\", best_out_of=%d\n",
+         g_operation.c_str(),
+         Config::finderReportBestOutOfN);
 
   if (Config::seedInput == cmsswSeeds)
     printf("- reading seeds from file\n");
 
   initGeom();
-  if (Config::useDeadModules) {
-    init_deadvectors();
-  }
 
   if (Config::nEvents <= 0) {
     return;
@@ -328,7 +315,7 @@ void test_standard() {
             StdSeq::loadHitsAndBeamSpot(ev, eoh);
 
             if (Config::useDeadModules) {
-              StdSeq::loadDeads(eoh, deadvectors);
+              StdSeq::loadDeads(eoh, mkfit::internal::deadvectors);
             }
 
             double t_best[NT] = {0}, t_cur[NT] = {0};
@@ -341,14 +328,14 @@ void test_standard() {
             int maxLayer_thisthread = 0;
             for (int b = 0; b < Config::finderReportBestOutOfN; ++b) {
               t_cur[0] = 0;  // t_cur[0] = (g_run_fit_std) ? runFittingTestPlex(ev, plex_tracks) : 0;
-              t_cur[1] = (g_run_build_all || g_run_build_bh) ? runBuildingTestPlexBestHit(ev, eoh, mkb) : 0;
-              t_cur[3] = (g_run_build_all || g_run_build_ce) ? runBuildingTestPlexCloneEngine(ev, eoh, mkb) : 0;
-              if (g_run_build_all || g_run_build_mimi)
+              t_cur[1] = (g_run_build_bh) ? runBuildingTestPlexBestHit(ev, eoh, mkb) : 0;
+              t_cur[2] = (g_run_build_default || g_run_build_std) ? runBuildingTestPlexStandard(ev, eoh, mkb) : 0;
+              t_cur[3] = (g_run_build_default || g_run_build_ce) ? runBuildingTestPlexCloneEngine(ev, eoh, mkb) : 0;
+              if (g_run_build_mimi)
                 t_cur_iter = runBtpCe_MultiIter(ev, eoh, mkb, Config::nItersCMSSW);
-              t_cur[4] = (g_run_build_all || g_run_build_mimi) ? t_cur_iter[Config::nItersCMSSW] : 0;
-              if (g_run_build_all || g_run_build_cmssw)
+              t_cur[4] = (g_run_build_mimi) ? t_cur_iter[Config::nItersCMSSW] : 0;
+              if (g_run_build_cmssw)
                 runBuildingTestPlexDumbCMSSW(ev, eoh, mkb);
-              t_cur[2] = (g_run_build_all || g_run_build_std) ? runBuildingTestPlexStandard(ev, eoh, mkb) : 0;
               if (g_run_build_ce || g_run_build_mimi) {
                 ncands_thisthread = mkb.total_cands();
                 auto const& ln = mkb.max_hits_layer(eoh);
@@ -395,7 +382,7 @@ void test_standard() {
               if (evt > 0)
                 for (int i = 0; i < NT; ++i)
                   t_skip[i] += t_best[i];
-              if (g_run_build_all || g_run_build_mimi) {
+              if (g_run_build_mimi) {
                 for (int i = 0; i < Config::nItersCMSSW; ++i)
                   t_sum_iter[i] += t_cur_iter[i];
                 if (evt > 0)
@@ -435,7 +422,7 @@ void test_standard() {
          maxHits_all.load(),
          maxLayer_all.load());
   //fflush(stdout);
-  if (g_run_build_all || g_run_build_mimi) {
+  if (g_run_build_mimi) {
     printf("================================================================\n");
     for (int i = 0; i < Config::nItersCMSSW; ++i)
       std::cout << " Iteration " << i << " build time = " << t_sum_iter[i] << " \n";
@@ -503,6 +490,7 @@ int main(int argc, const char* argv[]) {
   for (int i = 1; i < argc; ++i) {
     mArgs.push_back(argv[i]);
   }
+  bool run_shell = false;
 
   lStr_i i = mArgs.begin();
   while (i != mArgs.end()) {
@@ -524,10 +512,11 @@ int main(int argc, const char* argv[]) {
           "  --read-cmssw-tracks      read external cmssw reco tracks if available (def: %s)\n"
           "  --read-simtrack-states   read in simTrackStates for pulls in validation (def: %s)\n"
           "  --num-events     <int>   number of events to run over or simulate (def: %d)\n"
-          "                             if using --input-file, must be enabled AFTER on command line\n"
+          "                           if using --input-file, must be enabled AFTER on command line\n"
           "  --start-event    <int>   event number to start at when reading from a file (def: %d)\n"
           "  --loop-over-file         after reaching the end of the file, start over from the beginning until "
-          "<num-events> events have been processed\n"
+          "                           <num-events> events have been processed\n"
+          "  --shell                  start interactive shell instead of running test_standard()\n"
           "\n"
           "If no --input-file is specified, will trigger simulation\n"
           "  --num-tracks     <int>   number of tracks to generate for each event (def: %d)\n"
@@ -543,7 +532,6 @@ int main(int argc, const char* argv[]) {
           "\n\n"
           "FittingTestMPlex options\n\n"
           "  --fit-std                run standard fitting test (def: %s)\n"
-          "  --fit-std-only           run only standard fitting test (def: %s)\n"
           "  --cf-fitting             enable conformal fit before fitting tracks to get initial estimate of track "
           "parameters and errors (def: %s)\n"
           "  --fit-val                enable ROOT based validation for fittingMPlex  (def: %s)\n"
@@ -703,16 +691,14 @@ int main(int argc, const char* argv[]) {
           Config::numHitsPerTask,
 
           b2a(g_run_fit_std),
-          b2a(g_run_fit_std &&
-              !(g_run_build_all || g_run_build_cmssw || g_run_build_bh || g_run_build_std || g_run_build_ce)),
           b2a(Config::cf_fitting),
           b2a(Config::fit_val),
 
-          b2a(g_run_build_all || g_run_build_cmssw),
-          b2a(g_run_build_all || g_run_build_bh),
-          b2a(g_run_build_all || g_run_build_std),
-          b2a(g_run_build_all || g_run_build_ce),
-          b2a(g_run_build_all || g_run_build_mimi),
+          b2a(g_run_build_cmssw),
+          b2a(g_run_build_bh),
+          b2a(g_run_build_default || g_run_build_std),
+          b2a(g_run_build_default || g_run_build_ce),
+          b2a(g_run_build_mimi),
 
           getOpt(Config::seedInput, g_seed_opts).c_str(),
           getOpt(Config::seedCleaning, g_clean_opts).c_str(),
@@ -820,6 +806,8 @@ int main(int argc, const char* argv[]) {
       g_start_event = atoi(i->c_str());
     } else if (*i == "--loop-over-file") {
       Config::loopOverFile = true;
+    } else if (*i == "--shell") {
+      run_shell = true;
     } else if (*i == "--num-tracks") {
       next_arg_or_die(mArgs, i);
       Config::nTracks = atoi(i->c_str());
@@ -839,47 +827,26 @@ int main(int argc, const char* argv[]) {
       next_arg_or_die(mArgs, i);
       Config::numHitsPerTask = atoi(i->c_str());
     } else if (*i == "--fit-std") {
+      g_run_build_default = false;
       g_run_fit_std = true;
-    } else if (*i == "--fit-std-only") {
-      g_run_fit_std = true;
-      g_run_build_all = false;
-      g_run_build_bh = false;
-      g_run_build_std = false;
-      g_run_build_ce = false;
     } else if (*i == "--cf-fitting") {
       Config::cf_fitting = true;
     } else if (*i == "--fit-val") {
       Config::fit_val = true;
     } else if (*i == "--build-cmssw") {
-      g_run_build_all = false;
+      g_run_build_default = false;
       g_run_build_cmssw = true;
-      g_run_build_bh = false;
-      g_run_build_std = false;
-      g_run_build_ce = false;
     } else if (*i == "--build-bh") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
+      g_run_build_default = false;
       g_run_build_bh = true;
-      g_run_build_std = false;
-      g_run_build_ce = false;
     } else if (*i == "--build-std") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
-      g_run_build_bh = false;
+      g_run_build_default = false;
       g_run_build_std = true;
-      g_run_build_ce = false;
     } else if (*i == "--build-ce") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
-      g_run_build_bh = false;
-      g_run_build_std = false;
+      g_run_build_default = false;
       g_run_build_ce = true;
     } else if (*i == "--build-mimi") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
-      g_run_build_bh = false;
-      g_run_build_std = false;
-      g_run_build_ce = false;
+      g_run_build_default = false;
       g_run_build_mimi = true;
       if (Config::nItersCMSSW == 0)
         Config::nItersCMSSW = 3;
@@ -1020,24 +987,42 @@ int main(int argc, const char* argv[]) {
     mArgs.erase(start, ++i);
   }
 
+  // clang-format off
+
   // Do some checking of options before going...
   if (Config::seedCleaning != cleanSeedsPure &&
       (Config::cmsswMatchingFW == labelBased || Config::cmsswMatchingBK == labelBased)) {
-    std::cerr << "What have you done?!? Can't mix cmssw label matching without pure seeds! Exiting..." << std::endl;
+    std::cerr << "What have you done?!? Can't mix cmssw label matching without pure seeds! Exiting...\n";
     exit(1);
   } else if (Config::mtvLikeValidation && Config::inclusiveShorts) {
-    std::cerr
-        << "What have you done?!? Short reco tracks are already accounted for in the MTV-Like Validation! Inclusive "
-           "shorts is only an option for the standard simval, and will break the MTV-Like simval! Exiting..."
-        << std::endl;
+    std::cerr << "What have you done?!? Short reco tracks are already accounted for in the MTV-Like Validation! Inclusive "
+                 "shorts is only an option for the standard simval, and will break the MTV-Like simval! Exiting...\n";
     exit(1);
   }
 
   Config::recalculateDependentConstants();
 
-  printf("Running with n_threads=%d, best_out_of=%d\n", Config::numThreadsFinder, Config::finderReportBestOutOfN);
+  printf("mkFit configuration complete.\n"
+         "  vusize=%d, num_thr_events=%d, num_thr_finder=%d\n"
+         "  sizeof(Track)=%zu, sizeof(Hit)=%zu, sizeof(SVector3)=%zu, sizeof(SMatrixSym33)=%zu, sizeof(MCHitInfo)=%zu\n",
+         MPT_SIZE, Config::numThreadsEvents, Config::numThreadsFinder,
+         sizeof(Track), sizeof(Hit), sizeof(SVector3), sizeof(SMatrixSym33), sizeof(MCHitInfo));
 
-  test_standard();
+  if (run_shell) {
+    tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, Config::numThreadsFinder);
+
+    initGeom();
+    Shell s(mkfit::internal::deadvectors, g_input_file, g_start_event);
+    s.Run();
+  } else {
+    test_standard();
+  }
+
+#ifndef NO_ROOT
+  RntDumper::FinalizeAll();
+#endif
+
+  // clang-format on
 
   return 0;
 }
